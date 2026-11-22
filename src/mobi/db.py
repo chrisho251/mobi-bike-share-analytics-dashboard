@@ -1,5 +1,8 @@
 """Database schema and helpers shared by the pipeline and the dashboard."""
-
+from collections.abc import Sequence
+from typing import Any
+from sqlalchemy.engine import Engine
+from mobi.config import get_db_url
 from sqlalchemy import (
     Boolean,
     Column,
@@ -13,9 +16,8 @@ from sqlalchemy import (
     Table,
     create_engine,
 )
-from sqlalchemy.engine import Engine
-
-from mobi.config import get_db_url
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 # All timestamps are stored in UTC as naive datetimes (no tzinfo).
 metadata = MetaData()
@@ -66,6 +68,43 @@ def get_engine() -> Engine:
     if _engine is None:
         _engine = create_engine(get_db_url(), pool_pre_ping=True)
     return _engine
+
+def upsert(
+    table: Table,
+    rows: Sequence[dict[str, Any]],
+    keys: Sequence[str],
+    update_cols: Sequence[str] | None = None,
+) -> int:
+    """Inserts rows, resolving duplicate keys without raising an error.
+
+    Args:
+        table: The table to write into.
+        rows: One dict per row, mapping column names to values.
+        keys: Names of the columns that form the unique key (normally the
+            primary key). A row whose key already exists is a duplicate.
+        update_cols: Columns to overwrite when a duplicate is found. If None,
+            duplicates are skipped and the existing row is kept unchanged.
+
+    Returns:
+        The number of rows actually inserted (or updated, when update_cols is
+        given). Skipped duplicates are not counted.
+    """
+    if not rows:
+        return 0
+    engine = get_engine()
+    insert = pg_insert if engine.dialect.name == "postgresql" else sqlite_insert
+    stmt = insert(table).values(list(rows))
+    if update_cols:
+        stmt = stmt.on_conflict_do_update(
+            index_elements=list(keys),
+            set_={col: stmt.excluded[col] for col in update_cols},
+        )
+    else:
+        stmt = stmt.on_conflict_do_nothing(index_elements=list(keys))
+    stmt = stmt.returning(table.c[keys[0]])
+    with engine.begin() as conn:
+        written = conn.execute(stmt).fetchall()
+    return len(written)
 
 def init_db() -> None:
     """Creates any missing tables. Existing tables are left untouched."""
