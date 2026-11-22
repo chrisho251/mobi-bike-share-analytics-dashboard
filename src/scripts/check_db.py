@@ -2,7 +2,7 @@
 
 from sqlalchemy import inspect, text
 
-from mobi.create_db import get_engine, init_db
+from mobi.db import get_engine, init_db
 
 def main() -> None:
     """Creates missing tables, then prints server version and table names"""
