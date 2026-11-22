@@ -35,16 +35,19 @@ def run_step(name: str, step: Callable[[], Any]) -> bool:
 def run_pipeline() -> bool:
     """Runs every collection step once.
 
+    Weather is optional: if it fails, the failure is logged but the run is
+    still considered successful, because the bike counts are the essential data.
+
     Returns:
-        True if all steps succeeded, False if at least one failed.
+        True if the stations and status steps succeeded, False otherwise.
     """
     init_db()
-    results = [
+    critical = [
         run_step("stations", ingest_stations),
         run_step("status", ingest_status),
-        run_step("weather", ingest_weather),
     ]
-    return all(results)
+    run_step("weather", ingest_weather)
+    return all(critical)
 
 
 def main() -> None:

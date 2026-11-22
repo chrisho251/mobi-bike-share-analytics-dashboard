@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from typing import Any
 from sqlalchemy.engine import Engine
 from mobi.config import get_db_url
+from datetime import datetime
 from sqlalchemy import (
     Boolean,
     Column,
@@ -15,6 +16,8 @@ from sqlalchemy import (
     String,
     Table,
     create_engine,
+    func,
+    select,
 )
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -109,3 +112,16 @@ def upsert(
 def init_db() -> None:
     """Creates any missing tables. Existing tables are left untouched."""
     metadata.create_all(get_engine())
+
+def latest_fetch_time(table: Table) -> datetime | None:
+    """Returns the most recent fetched_at value stored in a table.
+
+    Args:
+        table: A table that has a fetched_at column.
+
+    Returns:
+        The latest fetched_at as a naive UTC datetime, or None if the table
+        is empty.
+    """
+    with get_engine().connect() as conn:
+        return conn.execute(select(func.max(table.c.fetched_at))).scalar()

@@ -4,7 +4,13 @@ import math
 import time
 from datetime import datetime, timezone
 from typing import Any
-
+from mobi.db import (
+    latest_fetch_time,
+    station_status,
+    stations,
+    upsert,
+    weather_hourly,
+)
 import requests
 
 from mobi import config
@@ -157,8 +163,13 @@ def ingest_weather() -> int:
     by observed values.
 
     Returns:
-        The number of hourly rows written.
+        The number of hourly rows written, or 0 if the weather was already
+        fetched during the current hour.
     """
+    this_hour = utcnow().replace(minute=0, second=0, microsecond=0)
+    last_fetch = latest_fetch_time(weather_hourly)
+    if last_fetch is not None and last_fetch >= this_hour:
+        return 0
     params = {
         "latitude": config.VANCOUVER_LAT,
         "longitude": config.VANCOUVER_LON,
