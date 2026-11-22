@@ -16,6 +16,17 @@ WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 VANCOUVER_LAT = 49.2827
 VANCOUVER_LON = -123.1207
 
+# Anchor points used to label each station with a neighbourhood. A station
+# belongs to the anchor that is closest to it.
+AREA_ANCHORS = {
+    "Downtown": (49.2827, -123.1207),
+    "West End": (49.2870, -123.1380),
+    "Stanley Park & Coal Harbour": (49.2960, -123.1330),
+    "Kitsilano": (49.2680, -123.1600),
+    "Fairview & Mount Pleasant": (49.2630, -123.1100),
+    "East Van": (49.2720, -123.0700),
+}
+
 # Default database
 DEFAULT_DATABASE_URL = "sqlite:///data/mobi.db"
 
