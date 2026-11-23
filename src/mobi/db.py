@@ -60,6 +60,37 @@ weather_hourly = Table(
     Column("fetched_at", DateTime),
 )
 
+predictions_log = Table(
+    "predictions_log",
+    metadata,
+    Column("station_id", String, ForeignKey("stations.station_id"), primary_key=True),
+    # Snapshot time the forecast was made from.
+    Column("base_time", DateTime, primary_key=True),
+    # Moment the forecast is about (base_time + the horizon).
+    Column("target_time", DateTime, nullable=False),
+    Column("model_version", String, nullable=False),
+    Column("bikes_now", Integer),
+    # Three competing forecasts of the bike count at target_time.
+    Column("pred_baseline", Float),
+    Column("pred_model", Float),
+    Column("pred_corrected", Float),
+    # Filled in later, once the real value at target_time is known.
+    Column("actual", Integer),
+    Column("created_at", DateTime),
+    Index("ix_predictions_target_time", "target_time"),
+)
+
+model_runs = Table(
+    "model_runs",
+    metadata,
+    Column("model_version", String, primary_key=True),
+    Column("trained_at", DateTime, nullable=False),
+    Column("n_train", Integer),
+    Column("n_valid", Integer),
+    Column("mae_baseline", Float),
+    Column("mae_model", Float),
+)
+
 _engine: Engine | None = None
 def get_engine() -> Engine:
     """Returns the shared SQLAlchemy engine, creating it on first use.
@@ -113,15 +144,16 @@ def init_db() -> None:
     """Creates any missing tables. Existing tables are left untouched."""
     metadata.create_all(get_engine())
 
-def latest_fetch_time(table: Table) -> datetime | None:
-    """Returns the most recent fetched_at value stored in a table.
+def latest_fetch_time(table: Table, column: str = "fetched_at") -> datetime | None:
+    """Returns the most recent value of a timestamp column in a table.
 
     Args:
-        table: A table that has a fetched_at column.
+        table: The table to inspect.
+        column: Name of a DateTime column. Defaults to "fetched_at".
 
     Returns:
-        The latest fetched_at as a naive UTC datetime, or None if the table
-        is empty.
+        The latest value as a naive UTC datetime, or None if the table is
+        empty.
     """
     with get_engine().connect() as conn:
-        return conn.execute(select(func.max(table.c.fetched_at))).scalar()
+        return conn.execute(select(func.max(table.c[column]))).scalar()

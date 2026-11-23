@@ -12,6 +12,7 @@ from mobi.db import (
     weather_hourly,
 )
 import requests
+from sqlalchemy import Table
 
 from mobi import config
 from mobi.db import station_status, stations, upsert, weather_hourly
@@ -27,6 +28,24 @@ def utcnow() -> datetime:
         convention for every timestamp stored in the database.
     """
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def fetched_this_hour(table: Table, column: str = "fetched_at") -> bool:
+    """Tells whether a table was already refreshed during the current UTC hour.
+
+    Slow-changing data (weather, station metadata) only needs one download per
+    hour, which also keeps us under the free API rate limits.
+
+    Args:
+        table: The table to inspect.
+        column: Name of the DateTime column holding the write time.
+
+    Returns:
+        True if the newest value of the column falls in the current hour.
+    """
+    this_hour = utcnow().replace(minute=0, second=0, microsecond=0)
+    last_fetch = latest_fetch_time(table, column)
+    return last_fetch is not None and last_fetch >= this_hour
 
 
 def fetch_json(
@@ -100,11 +119,15 @@ def ingest_stations() -> int:
     """Downloads station metadata and stores it in the stations table.
 
     Existing stations are updated, so renamed stations or changed capacities
-    are picked up.
+    are picked up. Station metadata rarely changes, so it is refreshed at most
+    once per hour.
 
     Returns:
-        The number of stations written.
+        The number of stations written, or 0 if they were already refreshed
+        during the current hour.
     """
+    if fetched_this_hour(stations, "updated_at"):
+        return 0
     data = fetch_json(config.STATION_INFO_URL)
     now = utcnow()
     rows = [
@@ -166,9 +189,7 @@ def ingest_weather() -> int:
         The number of hourly rows written, or 0 if the weather was already
         fetched during the current hour.
     """
-    this_hour = utcnow().replace(minute=0, second=0, microsecond=0)
-    last_fetch = latest_fetch_time(weather_hourly)
-    if last_fetch is not None and last_fetch >= this_hour:
+    if fetched_this_hour(weather_hourly):
         return 0
     params = {
         "latitude": config.VANCOUVER_LAT,

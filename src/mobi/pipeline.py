@@ -1,10 +1,11 @@
-"""Runs one full data-collection cycle: stations, bike status and weather."""
+"""Runs one full cycle: collect stations, bike status, weather, then forecast."""
 
 import logging
 from collections.abc import Callable
 from typing import Any
 
 from mobi.db import init_db
+from mobi.forecast import fill_actuals, predict_next_hour
 from mobi.ingest import ingest_stations, ingest_status, ingest_weather
 
 logger = logging.getLogger("pipeline")
@@ -33,13 +34,14 @@ def run_step(name: str, step: Callable[[], Any]) -> bool:
 
 
 def run_pipeline() -> bool:
-    """Runs every collection step once.
+    """Runs every collection and forecasting step once.
 
     Weather is optional: if it fails, the failure is logged but the run is
-    still considered successful, because the bike counts are the essential data.
+    still considered successful, because the bike counts are the essential
+    data. The forecast steps run last because they read what was just stored.
 
     Returns:
-        True if the stations and status steps succeeded, False otherwise.
+        True if every step except weather succeeded, False otherwise.
     """
     init_db()
     critical = [
@@ -47,6 +49,10 @@ def run_pipeline() -> bool:
         run_step("status", ingest_status),
     ]
     run_step("weather", ingest_weather)
+    critical += [
+        run_step("fill_actuals", fill_actuals),
+        run_step("predict", predict_next_hour),
+    ]
     return all(critical)
 
 

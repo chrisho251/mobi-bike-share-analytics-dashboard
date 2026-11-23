@@ -9,6 +9,15 @@ dependencies = [
     "requests>=2.34.2",
     "sqlalchemy>=2.1.9",
 ]
+
+[project.optional-dependencies]
+ml = [
+    "scikit-learn>=1.9.1",
+]
+app = [
+    "gradio>=6.32.0",
+    "plotly>=7.1.0",
+]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
