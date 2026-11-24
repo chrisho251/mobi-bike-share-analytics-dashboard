@@ -94,10 +94,19 @@ seconds. Query results are cached for 30 seconds (live data) to 10 minutes
 | Demand Patterns | fill level by area and hour; activity in dry vs rainy hours | planning |
 | Monitoring | status board (data age, completeness, stations, weather, model vs baseline, scoring backlog); share of expected snapshots collected per day; stations reporting per snapshot | operations |
 
-Suggested moves follow three rules: a station is short when its corrected
-forecast is under 15 % full; a donor is over 55 % full and keeps half its
-capacity; each short station is topped up toward 30 % from the nearest donors
-within 2 km.
+Suggested moves follow these rules, all on the corrected forecast and within
+2 km:
+
+- A station is short under 15 % full and is topped up toward 30 %. Short
+  stations take bikes from the nearest full stations first, then from the
+  nearest other stations over 55 % full; a giving station keeps half its
+  capacity.
+- A station is full over 90 % full and is emptied toward 70 %. Bikes it still
+  has to lose after refilling short stations go to the nearest stations under
+  50 % full, up to 50 %.
+
+The at-risk table lists the emptiest short stations first, then the fullest
+full stations.
 
 ## Simulation
 
