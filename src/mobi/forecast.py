@@ -129,71 +129,75 @@ def fill_actuals() -> int:
     return len(records)
 
 
-def _train(frame: pd.DataFrame):
+def _make_model():
+    """Creates an untrained change-in-bikes regressor.
+
+    Absolute-error loss predicts the median change, which is 0 for most
+    stations; squared error predicted small changes everywhere and lost to
+    persistence. Early stopping sizes the model to the signal in the data: on
+    two days of real data it stops after a few trees (about persistence), on
+    three weeks of simulated data it grows to ~200 trees and beats it by ~9 %.
+    """
+    # Imported here so the dashboard, which never trains, does not need it.
+    from sklearn.ensemble import HistGradientBoostingRegressor
+
+    return HistGradientBoostingRegressor(
+        loss="absolute_error",
+        max_iter=500,
+        learning_rate=0.05,
+        max_leaf_nodes=31,
+        min_samples_leaf=100,
+        categorical_features=["area_code"],
+        early_stopping=True,
+        validation_fraction=0.15,
+        n_iter_no_change=20,
+        random_state=0,
+    )
+
+
+def _fit(frame: pd.DataFrame):
+    """Fits a model on the feature columns that hold at least one value.
+
+    Lag features are empty while the history is shorter than the lag, and the
+    model cannot bin an empty column, so such columns are left out. The fitted
+    model remembers its columns in feature_names_in_.
+
+    Args:
+        frame: Feature rows with bikes_target.
+
+    Returns:
+        The fitted model.
+    """
+    columns = [c for c in features.FEATURE_COLUMNS if frame[c].notna().any()]
+    return _make_model().fit(frame[columns], frame["bikes_target"] - frame["bikes_now"])
+
+
+def train_model(frame: pd.DataFrame):
     """Trains the change-in-bikes model and scores it on the newest data.
 
     The model learns delta = bikes in 60 minutes - bikes now. It is first fit
-    on the older part of the history and scored on the newest part (a fair
-    test, since the future is never used to predict the past), then refit on
-    everything for the actual forecasts.
+    on the older part of the history and scored on the newest part (the future
+    is never used to predict the past), then refit on everything.
 
     Args:
         frame: Feature rows that already have a bikes_target.
 
     Returns:
-        A tuple (model, metrics). The model is None, and metrics is empty, when
-        there are fewer than MIN_TRAIN_ROWS examples or the history is still too
-        short to compute every feature.
+        A tuple (model, metrics). The model is None and metrics is empty when
+        there are fewer than MIN_TRAIN_ROWS examples.
     """
-    # Imported here so the dashboard, which never trains, does not need it.
-    from sklearn.ensemble import HistGradientBoostingRegressor
-
     if len(frame) < MIN_TRAIN_ROWS:
         return None, {}
 
-    frame = frame.sort_values("snapshot_time")
     cutoff = frame["snapshot_time"].quantile(1 - VALID_FRACTION)
     train = frame[frame["snapshot_time"] < cutoff]
     valid = frame[frame["snapshot_time"] >= cutoff]
-    if not train[features.FEATURE_COLUMNS].notna().any().all():
-        # A feature with no value at all (history too short for the lags yet)
-        # cannot be binned by the model.
-        return None, {}
-
-    def make_model():
-        # Absolute-error loss predicts the median change, which is 0 for most
-        # stations; squared error predicted small non-zero changes everywhere
-        # and was clearly worse than doing nothing. The small trees keep the
-        # model from overfitting the few days of history.
-        return HistGradientBoostingRegressor(
-            loss="absolute_error",
-            max_iter=100,
-            learning_rate=0.05,
-            max_leaf_nodes=15,
-            min_samples_leaf=100,
-            categorical_features=["area_code"],
-            early_stopping=False,
-            random_state=0,
-        )
-
     metrics = {"n_train": len(train), "n_valid": len(valid)}
     if len(train) >= MIN_TRAIN_ROWS // 2 and not valid.empty:
-        scored = make_model().fit(
-            train[features.FEATURE_COLUMNS], train["bikes_target"] - train["bikes_now"]
-        )
-        predicted = _clip(
-            valid["bikes_now"] + scored.predict(valid[features.FEATURE_COLUMNS]),
-            valid["capacity"],
-        )
-        metrics["mae_model"] = float((valid["bikes_target"] - predicted).abs().mean())
-        metrics["mae_baseline"] = float(
-            (valid["bikes_target"] - valid["bikes_now"]).abs().mean()
-        )
-
-    model = make_model().fit(
-        frame[features.FEATURE_COLUMNS], frame["bikes_target"] - frame["bikes_now"]
-    )
-    return model, metrics
+        scored = forecast(_fit(train), valid)
+        metrics["mae_model"] = float((valid["bikes_target"] - scored["pred_model"]).abs().mean())
+        metrics["mae_baseline"] = float((valid["bikes_target"] - valid["bikes_now"]).abs().mean())
+    return _fit(frame), metrics
 
 
 def _clip(values: pd.Series, capacity: pd.Series) -> pd.Series:
@@ -210,19 +214,102 @@ def _clip(values: pd.Series, capacity: pd.Series) -> pd.Series:
     return values.clip(lower=0).clip(upper=upper)
 
 
-def _trusted_model_stations(latest) -> set[str]:
+def forecast(model, rows: pd.DataFrame) -> pd.DataFrame:
+    """Adds the baseline and model forecasts to feature rows.
+
+    Args:
+        model: A model from train_model, or None to fall back to the baseline.
+        rows: Feature rows (one per station and base time).
+
+    Returns:
+        A copy of rows with pred_baseline and pred_model columns.
+    """
+    rows = rows.copy()
+    rows["pred_baseline"] = rows["bikes_now"].astype(float)
+    if model is None:
+        rows["pred_model"] = rows["pred_baseline"]
+    else:
+        delta = model.predict(rows[list(model.feature_names_in_)])
+        rows["pred_model"] = _clip(rows["bikes_now"] + delta, rows["capacity"])
+    return rows
+
+
+def trusted_stations(scored: pd.DataFrame) -> set[str]:
     """Finds the stations where the model recently beat the baseline.
 
     Args:
-        latest: The newest snapshot time; forecasts are taken from the
-            SELECTION_WINDOW before it.
+        scored: Recent forecasts with station_id, pred_baseline, pred_model and
+            a known actual.
 
     Returns:
-        The ids of stations with at least SELECTION_MIN_FORECASTS scored
-        forecasts whose model error is lower than the baseline error by more
-        than SELECTION_MARGIN bikes.
+        The ids of stations with at least SELECTION_MIN_FORECASTS forecasts
+        whose model error is lower than the baseline error by more than
+        SELECTION_MARGIN bikes.
     """
-    scored = features.read_query(
+    if scored.empty:
+        return set()
+    errors = pd.DataFrame(
+        {
+            "station_id": scored["station_id"],
+            "model": (scored["actual"] - scored["pred_model"]).abs(),
+            "baseline": (scored["actual"] - scored["pred_baseline"]).abs(),
+        }
+    )
+    by_station = errors.groupby("station_id").agg(
+        model=("model", "mean"), baseline=("baseline", "mean"), n=("model", "size")
+    )
+    trusted = (by_station["n"] >= SELECTION_MIN_FORECASTS) & (
+        by_station["model"] < by_station["baseline"] - SELECTION_MARGIN
+    )
+    return set(by_station.index[trusted])
+
+
+def correct(rows: pd.DataFrame, trusted: set[str]) -> pd.DataFrame:
+    """Adds pred_corrected: the model where trusted, the baseline elsewhere.
+
+    Args:
+        rows: Output of forecast().
+        trusted: Output of trusted_stations().
+
+    Returns:
+        A copy of rows with a pred_corrected column.
+    """
+    rows = rows.copy()
+    use_model = rows["station_id"].isin(trusted)
+    rows["pred_corrected"] = rows["pred_model"].where(use_model, rows["pred_baseline"])
+    return rows
+
+
+def to_log_rows(rows: pd.DataFrame, version: str, created_at) -> list[dict]:
+    """Converts corrected forecasts into predictions_log records.
+
+    Args:
+        rows: Output of correct(), with station_id and snapshot_time.
+        version: The model_version label.
+        created_at: When the forecasts were made.
+
+    Returns:
+        One dict per row, ready for upsert into predictions_log.
+    """
+    return [
+        {
+            "station_id": row.station_id,
+            "base_time": row.snapshot_time.to_pydatetime(),
+            "target_time": (row.snapshot_time + features.HORIZON).to_pydatetime(),
+            "model_version": version,
+            "bikes_now": int(row.bikes_now),
+            "pred_baseline": float(row.pred_baseline),
+            "pred_model": float(row.pred_model),
+            "pred_corrected": float(row.pred_corrected),
+            "created_at": created_at,
+        }
+        for row in rows.itertuples()
+    ]
+
+
+def _recent_scored(latest) -> pd.DataFrame:
+    """Reads the forecasts scored within SELECTION_WINDOW before latest."""
+    return features.read_query(
         select(
             predictions_log.c.station_id,
             predictions_log.c.pred_baseline,
@@ -233,19 +320,6 @@ def _trusted_model_stations(latest) -> set[str]:
             predictions_log.c.target_time > latest - SELECTION_WINDOW,
         )
     )
-    if scored.empty:
-        return set()
-    scored["model_error"] = (scored["actual"] - scored["pred_model"]).abs()
-    scored["baseline_error"] = (scored["actual"] - scored["pred_baseline"]).abs()
-    by_station = scored.groupby("station_id").agg(
-        model_error=("model_error", "mean"),
-        baseline_error=("baseline_error", "mean"),
-        n=("actual", "size"),
-    )
-    trusted = (by_station["n"] >= SELECTION_MIN_FORECASTS) & (
-        by_station["model_error"] < by_station["baseline_error"] - SELECTION_MARGIN
-    )
-    return set(by_station.index[trusted])
 
 
 def predict_next_hour() -> int:
@@ -263,7 +337,7 @@ def predict_next_hour() -> int:
     frame = features.build_features(
         features.load_status(), features.load_stations(), features.load_weather()
     )
-    model, metrics = _train(frame[frame["bikes_target"].notna()])
+    model, metrics = train_model(frame[frame["bikes_target"].notna()])
     version = f"hgb-{now:%Y%m%d%H%M}" if model is not None else "baseline-only"
     if model is not None:
         logger.info("trained %s: %s", version, metrics)
@@ -273,32 +347,8 @@ def predict_next_hour() -> int:
             ["model_version"],
         )
 
-    current = frame[frame["snapshot_time"] == pd.Timestamp(latest)].copy()
+    current = frame[frame["snapshot_time"] == pd.Timestamp(latest)]
     if current.empty:
         return 0
-    current["pred_baseline"] = current["bikes_now"].astype(float)
-    if model is not None:
-        delta = model.predict(current[features.FEATURE_COLUMNS])
-        current["pred_model"] = _clip(current["bikes_now"] + delta, current["capacity"])
-    else:
-        current["pred_model"] = current["pred_baseline"]
-    trusted = current["station_id"].isin(_trusted_model_stations(latest))
-    current["pred_corrected"] = current["pred_model"].where(
-        trusted, current["pred_baseline"]
-    )
-
-    rows = [
-        {
-            "station_id": row.station_id,
-            "base_time": latest,
-            "target_time": latest + features.HORIZON,
-            "model_version": version,
-            "bikes_now": int(row.bikes_now),
-            "pred_baseline": float(row.pred_baseline),
-            "pred_model": float(row.pred_model),
-            "pred_corrected": float(row.pred_corrected),
-            "created_at": now,
-        }
-        for row in current.itertuples()
-    ]
-    return upsert(predictions_log, rows, ["station_id", "base_time"])
+    rows = correct(forecast(model, current), trusted_stations(_recent_scored(latest)))
+    return upsert(predictions_log, to_log_rows(rows, version, now), ["station_id", "base_time"])

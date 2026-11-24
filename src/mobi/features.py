@@ -206,7 +206,7 @@ def build_features(
 
     local = frame["snapshot_time"].dt.tz_localize("UTC").dt.tz_convert(LOCAL_TZ)
     frame["hour_frac"] = local.dt.hour + local.dt.minute / 60
-    frame["day_of_week"] = local.dt.dayofweek
+    frame["day_of_week"] = local.dt.day_of_week
     frame["is_weekend"] = (frame["day_of_week"] >= 5).astype(int)
 
     frame["base_hour"] = frame["snapshot_time"].dt.floor("h")
