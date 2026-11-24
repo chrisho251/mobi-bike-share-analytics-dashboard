@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     MetaData,
     String,
     Table,
@@ -90,6 +91,20 @@ model_runs = Table(
     Column("n_valid", Integer),
     Column("mae_baseline", Float),
     Column("mae_model", Float),
+)
+
+# The most recently trained model, so the runs between retrains can reuse it
+# instead of reading the whole training window again. One row, name "current".
+model_store = Table(
+    "model_store",
+    metadata,
+    Column("name", String, primary_key=True),
+    Column("model_version", String, nullable=False),
+    Column("trained_at", DateTime, nullable=False),
+    # scikit-learn version that pickled the model; another version may not
+    # load it correctly, so a mismatch forces a retrain.
+    Column("library_version", String, nullable=False),
+    Column("model", LargeBinary, nullable=False),
 )
 
 _engine: Engine | None = None

@@ -94,7 +94,8 @@ weather now and in one hour, and the station's location and area. It is a
 scikit-learn `HistGradientBoostingRegressor` with absolute-error loss: most
 stations do not change within an hour, and a median-predicting model falls
 back to "no change" where it finds no signal. Early stopping sizes the model to
-the data available. The pipeline retrains it whenever a new snapshot arrives.
+the data available. The pipeline retrains it once an hour on the last 28 days
+of snapshots, and reuses the stored model in the runs between.
 
 The corrected forecast is chosen per station from the last 24 hours of scored
 forecasts: the model where its error was lower than the baseline's, the
@@ -128,7 +129,7 @@ accumulates.
 ```
 src/mobi/
   config.py      endpoints, constants, database selection
-  db.py          schema (5 tables), engine, upsert
+  db.py          schema (6 tables), engine, upsert
   ingest.py      GBFS and Open-Meteo collection
   features.py    feature building (lags, target, calendar, weather)
   forecast.py    training, forecasting, correction, scoring
@@ -144,7 +145,7 @@ docs/            architecture, tech stack, simulation walkthrough
 ## Development
 
 ```bash
-uv run pytest     # 13 tests on temporary SQLite databases, no network
+uv run pytest     # 15 tests on temporary SQLite databases, no network
 ```
 
 After changing dependencies in `pyproject.toml`, refresh the lock file and the
