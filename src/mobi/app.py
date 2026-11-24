@@ -521,12 +521,9 @@ def main() -> None:
     """Starts the web server; hosts such as Render set the PORT variable."""
     if IS_SIMULATION and not config.SIMULATION_DB.exists():
         raise SystemExit(
-            "No simulation data yet. Run:
-"
-            "  uv run python simulation/generate.py
-"
-            "  uv run python simulation/replay.py
-"
+            "No simulation data yet. Run:\n"
+            "  uv run python simulation/generate.py\n"
+            "  uv run python simulation/replay.py\n"
             "or set DATABASE_URL to use live data."
         )
     build_app().launch(server_name="0.0.0.0", server_port=int(os.getenv("PORT", "7860")))
