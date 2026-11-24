@@ -9,8 +9,15 @@ Each pipeline run does two things:
 
    * baseline:  the bike count stays as it is now (persistence);
    * model:     gradient-boosted trees predicting the change in bike count;
-   * corrected: the model plus that station's average recent error, so
-     systematic mistakes are cancelled out as actuals arrive.
+   * corrected: per station, the model if it beat the baseline over the last
+     few hours, otherwise the baseline. Stations where the model keeps being
+     wrong are therefore handed back to the baseline automatically, and
+     handed to the model again once it does better.
+
+Adding each station's average recent error to the model ("bias correction")
+was tried first and rejected: on real data it raised the error from 0.66 to
+0.88 bikes, because most stations barely change within an hour, so the
+recent error is mostly noise.
 """
 
 import logging
@@ -37,8 +44,15 @@ logger = logging.getLogger("forecast")
 MIN_TRAIN_ROWS = 2000
 # Share of the most recent snapshot times held out to score the model.
 VALID_FRACTION = 0.2
-# Only errors made in this window are used to correct the next forecasts.
-BIAS_WINDOW = timedelta(hours=3)
+# Only forecasts scored in this window decide, per station, whether the model
+# or the baseline is trusted.
+SELECTION_WINDOW = timedelta(hours=6)
+# A station needs at least this many scored forecasts in the window before the
+# model can be trusted there.
+SELECTION_MIN_FORECASTS = 3
+# The model must beat the baseline by more than this many bikes (mean absolute
+# error) to be trusted at a station.
+SELECTION_MARGIN = 0.1
 # Forecasts older than this are not scanned for actuals any more.
 ACTUAL_LOOKBACK = timedelta(hours=12)
 
@@ -147,9 +161,16 @@ def _train(frame: pd.DataFrame):
         return None, {}
 
     def make_model():
+        # Absolute-error loss predicts the median change, which is 0 for most
+        # stations; squared error predicted small non-zero changes everywhere
+        # and was clearly worse than doing nothing. The small trees keep the
+        # model from overfitting the few days of history.
         return HistGradientBoostingRegressor(
-            max_iter=200,
-            learning_rate=0.08,
+            loss="absolute_error",
+            max_iter=100,
+            learning_rate=0.05,
+            max_leaf_nodes=15,
+            min_samples_leaf=100,
             categorical_features=["area_code"],
             early_stopping=False,
             random_state=0,
@@ -189,31 +210,42 @@ def _clip(values: pd.Series, capacity: pd.Series) -> pd.Series:
     return values.clip(lower=0).clip(upper=upper)
 
 
-def _recent_bias(latest) -> pd.Series:
-    """Computes each station's average recent model error.
+def _trusted_model_stations(latest) -> set[str]:
+    """Finds the stations where the model recently beat the baseline.
 
     Args:
-        latest: The newest snapshot time; errors are taken from the BIAS_WINDOW
-            before it.
+        latest: The newest snapshot time; forecasts are taken from the
+            SELECTION_WINDOW before it.
 
     Returns:
-        A series indexed by station_id with mean(actual - pred_model), for
-        stations that have at least one scored forecast in the window.
+        The ids of stations with at least SELECTION_MIN_FORECASTS scored
+        forecasts whose model error is lower than the baseline error by more
+        than SELECTION_MARGIN bikes.
     """
     scored = features.read_query(
         select(
             predictions_log.c.station_id,
+            predictions_log.c.pred_baseline,
             predictions_log.c.pred_model,
             predictions_log.c.actual,
         ).where(
             predictions_log.c.actual.is_not(None),
-            predictions_log.c.target_time > latest - BIAS_WINDOW,
+            predictions_log.c.target_time > latest - SELECTION_WINDOW,
         )
     )
     if scored.empty:
-        return pd.Series(dtype=float)
-    scored["error"] = scored["actual"] - scored["pred_model"]
-    return scored.groupby("station_id")["error"].mean()
+        return set()
+    scored["model_error"] = (scored["actual"] - scored["pred_model"]).abs()
+    scored["baseline_error"] = (scored["actual"] - scored["pred_baseline"]).abs()
+    by_station = scored.groupby("station_id").agg(
+        model_error=("model_error", "mean"),
+        baseline_error=("baseline_error", "mean"),
+        n=("actual", "size"),
+    )
+    trusted = (by_station["n"] >= SELECTION_MIN_FORECASTS) & (
+        by_station["model_error"] < by_station["baseline_error"] - SELECTION_MARGIN
+    )
+    return set(by_station.index[trusted])
 
 
 def predict_next_hour() -> int:
@@ -250,8 +282,10 @@ def predict_next_hour() -> int:
         current["pred_model"] = _clip(current["bikes_now"] + delta, current["capacity"])
     else:
         current["pred_model"] = current["pred_baseline"]
-    bias = current["station_id"].map(_recent_bias(latest)).fillna(0.0)
-    current["pred_corrected"] = _clip(current["pred_model"] + bias, current["capacity"])
+    trusted = current["station_id"].isin(_trusted_model_stations(latest))
+    current["pred_corrected"] = current["pred_model"].where(
+        trusted, current["pred_baseline"]
+    )
 
     rows = [
         {
