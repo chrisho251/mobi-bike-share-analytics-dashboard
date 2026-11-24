@@ -1,6 +1,7 @@
 """Project configuration: API endpoints, constants and database URL """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -27,18 +28,32 @@ AREA_ANCHORS = {
     "East Van": (49.2720, -123.0700),
 }
 
-# Default database
-DEFAULT_DATABASE_URL = "sqlite:///data/mobi.db"
+# Without DATABASE_URL the project runs on the simulated network, so anyone can
+# explore it without credentials. Set DATABASE_URL to switch to live data.
+SIMULATION_DB = Path(__file__).resolve().parents[2] / "simulation" / "data" / "mobi_sim.db"
+SIMULATION_DATABASE_URL = f"sqlite:///{SIMULATION_DB.as_posix()}"
+
 
 def get_db_url() -> str:
-    """Return the SQLALchemy database URL for the current env
-        Reads the DATABASE_URL env variable (set in .env.local by the Neon CLI).
-        If it is not set, falls back to a local SQLite file so that anyone can run the project offline without a Neon account
+    """Returns the SQLAlchemy database URL for the current environment.
 
-        Returns:
-            A SQLAlchemy URL string. Postgres URLs are rewritten to use the psycopg (version 3) driver
+    Reads DATABASE_URL (from the environment or .env.local). If it is not set,
+    falls back to the simulation database.
+
+    Returns:
+        A SQLAlchemy URL. Postgres URLs are rewritten to use the psycopg 3
+        driver.
     """
-    url = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+    url = os.getenv("DATABASE_URL", SIMULATION_DATABASE_URL)
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
+
+
+def is_simulation() -> bool:
+    """Tells whether the project is pointed at the simulation database.
+
+    Returns:
+        True if the current database URL is the simulation SQLite file.
+    """
+    return Path(get_db_url().removeprefix("sqlite:///")).resolve() == SIMULATION_DB

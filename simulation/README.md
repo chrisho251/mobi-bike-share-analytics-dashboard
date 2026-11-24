@@ -15,7 +15,7 @@ code. It is **not real data** and is never written to the production database.
 
 ```bash
 uv run python simulation/generate.py --days 21
-uv run python simulation/replay.py --retrain-hours 24   # about 6 minutes
+uv run python simulation/replay.py   # about 6 minutes
 ```
 
 ## Model of the network

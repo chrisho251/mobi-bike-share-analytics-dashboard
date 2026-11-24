@@ -24,7 +24,7 @@ from mobi.ingest import utcnow
 
 REFRESH_SECONDS = 60
 MAX_MOVES_SHOWN = 25
-IS_SIMULATION = "mobi_sim" in config.get_db_url()
+IS_SIMULATION = config.is_simulation()
 
 # Forecast colours are fixed per series: the baseline is a neutral reference.
 SERIES_COLORS = {"baseline": "#8a8984", "model": "#2a78d6", "corrected": "#eb6834"}
@@ -519,6 +519,16 @@ def build_app() -> gr.Blocks:
 
 def main() -> None:
     """Starts the web server; hosts such as Render set the PORT variable."""
+    if IS_SIMULATION and not config.SIMULATION_DB.exists():
+        raise SystemExit(
+            "No simulation data yet. Run:
+"
+            "  uv run python simulation/generate.py
+"
+            "  uv run python simulation/replay.py
+"
+            "or set DATABASE_URL to use live data."
+        )
     build_app().launch(server_name="0.0.0.0", server_port=int(os.getenv("PORT", "7860")))
 
 

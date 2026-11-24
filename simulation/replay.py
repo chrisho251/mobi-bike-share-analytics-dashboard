@@ -7,7 +7,7 @@ only forecasts already scored. Results are written to the simulation
 database's predictions_log and model_runs, so the dashboard can show them.
 
 Usage:
-    uv run python simulation/replay.py --retrain-hours 12
+    uv run python simulation/replay.py
 """
 
 import argparse
@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
-    parser.add_argument("--retrain-hours", type=int, default=12)
+    parser.add_argument("--retrain-hours", type=int, default=24)
     parser.add_argument(
         "--days", type=int, default=None, help="replay only the last N days"
     )

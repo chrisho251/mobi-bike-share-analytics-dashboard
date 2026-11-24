@@ -74,8 +74,10 @@ naive UTC; the dashboard converts to `America/Vancouver`.
 | `predictions_log` | `station_id`, `base_time` | forecast; `actual` filled by scoring | the evaluation record |
 | `model_runs` | `model_version` | forecast | held-out error of model and baseline per training run |
 
-The same schema runs on SQLite for local development, tests and the
-simulation (`DATABASE_URL` unset or pointing at a SQLite file).
+The same schema runs on SQLite for tests and the simulation. When
+`DATABASE_URL` is not set, every component uses the simulation database
+(`simulation/data/mobi_sim.db`); setting it switches to live data. The
+pipeline refuses to write live snapshots into the simulation database.
 
 ## 4. Dashboard
 

@@ -39,38 +39,39 @@ cd mobi-bike-share-analytics-dashboard
 uv sync --all-extras
 ```
 
-### Option A: explore with simulated data (no account needed)
+### Run on simulated data (default)
+
+Without a `DATABASE_URL`, the pipeline code, forecasts and dashboard all use a
+simulated network stored in `simulation/data/mobi_sim.db`. No account or
+credentials are needed.
 
 ```bash
-uv run python simulation/generate.py --days 21          # synthetic history
-uv run python simulation/replay.py --retrain-hours 24   # forecasts + scores
-DATABASE_URL=sqlite:///simulation/data/mobi_sim.db uv run python -m mobi.app
+uv run python simulation/generate.py    # 21 days of synthetic history (~20 s)
+uv run python simulation/replay.py      # forecasts and scores, as if live (~6 min)
+uv run python -m mobi.app               # dashboard on http://localhost:7860
 ```
 
-Open http://localhost:7860. A banner marks the dashboard as simulation mode.
-On Windows PowerShell, set the variable first:
-`$env:DATABASE_URL = "sqlite:///simulation/data/mobi_sim.db"`.
+A banner marks the dashboard as simulation mode. See
+[simulation/README.md](simulation/README.md) for how the network is modelled.
 
-### Option B: collect live data
+### Switch to live data
 
-Without `DATABASE_URL`, data goes to a local SQLite file, `data/mobi.db`.
-
-```bash
-uv run python -m mobi.pipeline   # one cycle: ingest, score, train, forecast
-uv run python -m mobi.app        # dashboard on http://localhost:7860
-```
-
-Run the pipeline repeatedly (every 10 minutes) to build history. Forecasts
-are logged from the first run; the model starts once 2,000 labelled
-snapshots exist (about two hours) and the first forecasts are scored one hour
-after they are made.
-
-To use Postgres, put the connection string in `.env.local` (or the
-environment):
+Set `DATABASE_URL`, either in the environment or in a `.env.local` file at the
+repository root (never committed):
 
 ```bash
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 ```
+
+With `DATABASE_URL` set, `python -m mobi.app` shows the live network and
+`python -m mobi.pipeline` collects data and forecasts. For a local live
+database without Postgres, use `DATABASE_URL=sqlite:///data/mobi.db`.
+
+Run the pipeline every 10 minutes to build history. Forecasts are logged from
+the first run; the model starts once 2,000 labelled snapshots exist (about two
+hours) and the first forecasts are scored one hour after they are made. The
+pipeline refuses to run against the simulation database, so live and
+synthetic data never mix.
 
 ## Deployment
 

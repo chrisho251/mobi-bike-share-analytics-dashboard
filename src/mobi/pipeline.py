@@ -4,6 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from mobi import config
 from mobi.db import init_db
 from mobi.forecast import fill_actuals, predict_next_hour
 from mobi.ingest import ingest_stations, ingest_status, ingest_weather
@@ -61,6 +62,13 @@ def main() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
+    if config.is_simulation():
+        # Live snapshots must never be mixed into the synthetic history.
+        raise SystemExit(
+            "DATABASE_URL is not set, so the project points at the simulation "
+            "database. Set DATABASE_URL to collect live data, or run "
+            "simulation/replay.py to forecast on simulated data."
+        )
     if not run_pipeline():
         raise SystemExit(1)
 
