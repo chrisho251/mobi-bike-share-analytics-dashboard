@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy.engine import Engine
 from mobi.config import get_db_url
 from datetime import datetime
+from pathlib import Path
 from sqlalchemy import (
     Boolean,
     Column,
@@ -100,7 +101,11 @@ def get_engine() -> Engine:
     """
     global _engine
     if _engine is None:
-        _engine = create_engine(get_db_url(), pool_pre_ping=True)
+        url = get_db_url()
+        if url.startswith("sqlite:///"):
+            # SQLite creates the file but not its folder.
+            Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
+        _engine = create_engine(url, pool_pre_ping=True)
     return _engine
 
 def upsert(

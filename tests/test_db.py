@@ -5,6 +5,17 @@ from conftest import START, station_rows, status_rows
 from mobi import db
 
 
+def test_sqlite_folder_is_created(tmp_path, monkeypatch):
+    target = tmp_path / "missing" / "folder" / "mobi.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{target.as_posix()}")
+    monkeypatch.setattr(db, "_engine", None)
+
+    db.init_db()
+
+    assert target.exists()
+    db.get_engine().dispose()
+
+
 def test_upsert_skips_duplicate_snapshots(sqlite_db):
     db.upsert(db.stations, station_rows(), ["station_id"])
     rows = status_rows(START, START)
