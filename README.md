@@ -24,8 +24,8 @@ for the data team.
   hour later; accuracy is tracked per hour, per area and per training run.
 - **Rebalancing suggestions**: stations about to run empty or full, and which
   nearby stations to take bikes from.
-- **Dashboard** with 12 panels in 6 tabs: Live Overview, Next-Hour Actions,
-  Forecast Accuracy, Station Explorer, Demand Patterns and Pipeline Health.
+- **Dashboard** with 11 panels in 6 tabs: Live Overview, Next-Hour Actions,
+  Forecast Accuracy, Station Explorer, Demand Patterns and Monitoring.
 - **Simulation** of weeks of network history to develop and validate the
   forecasting code offline.
 

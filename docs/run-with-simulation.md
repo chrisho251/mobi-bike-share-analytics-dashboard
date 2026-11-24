@@ -101,10 +101,10 @@ source. Stop the server with `Ctrl+C`.
 | Forecast Accuracy | Error of baseline, model and corrected forecasts per hour and per area; held-out error of each training run. |
 | Station Explorer | Pick a station: its bikes over 24 h with the forecasts made an hour earlier. |
 | Demand Patterns | Fill level by area and hour; activity in dry vs rainy hours. |
-| Pipeline Health | Snapshots and forecasts per hour. |
+| Monitoring | Status board (green / amber / red tiles), hour-by-hour collection and scoring, stations reporting. |
 
 The simulation stops at the moment it was generated, so "minutes ago" keeps
-growing and Pipeline Health reports **LATE**: expected, not an error.
+growing and the Monitoring tab turns the "Latest data" tile red: expected, not an error.
 Regenerate (steps 4 and 5) for fresh timestamps.
 
 ## 7. Run the tests (optional)

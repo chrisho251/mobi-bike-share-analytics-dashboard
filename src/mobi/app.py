@@ -1,13 +1,13 @@
 """Gradio dashboard for Mobi dispatchers and the team running the pipeline.
 
-Twelve panels in six tabs:
+Eleven panels in six tabs:
 
 * Live Overview     - station map; empty/full stations over the last 24 h.
 * Next-Hour Actions - suggested bike moves; stations at risk.
 * Forecast Accuracy - error per hour; error per area; model training runs.
 * Station Explorer  - one station's bikes and forecasts.
 * Demand Patterns   - fill level by area and hour; activity in dry vs rain.
-* Pipeline Health   - snapshots collected per hour; forecasts made vs scored.
+* Monitoring        - status board; hourly collection and scoring; stations reporting.
 
 Run with: uv run --extra app python -m mobi.app
 """
@@ -29,6 +29,10 @@ IS_SIMULATION = config.is_simulation()
 # Forecast colours are fixed per series: the baseline is a neutral reference.
 SERIES_COLORS = {"baseline": "#8a8984", "model": "#2a78d6", "corrected": "#eb6834"}
 WEATHER_COLORS = {"Dry": "#eda100", "Rain": "#2a78d6"}
+PERCENT_COLORBAR = {
+    "title": {"text": "Full (%)", "side": "right"},
+    "tickvals": [0, 25, 50, 75, 100],
+}
 EMPTY_MESSAGE = "No data yet: the collector has not stored any snapshot."
 NO_FORECAST_MESSAGE = (
     "No scored forecasts yet. Forecasts are compared with reality one hour "
@@ -117,7 +121,7 @@ def station_map(frame: pd.DataFrame) -> go.Figure | None:
         map_style="open-street-map",
     )
     figure.update_traces(marker={"size": 11})
-    figure.update_layout(margin={"l": 0, "r": 0, "t": 0, "b": 0})
+    figure.update_layout(margin={"l": 0, "r": 0, "t": 36, "b": 0}, coloraxis_colorbar=PERCENT_COLORBAR)
     return figure
 
 
@@ -322,7 +326,7 @@ def fill_heatmap() -> go.Figure | None:
         text_auto=True,
     )
     figure.update_xaxes(dtick=1)
-    figure.update_layout(height=360, margin={"l": 20, "r": 20, "t": 30, "b": 40})
+    figure.update_layout(height=380, margin={"l": 20, "r": 20, "t": 44, "b": 40}, coloraxis_colorbar=PERCENT_COLORBAR)
     return figure
 
 
@@ -348,75 +352,179 @@ def activity_chart() -> go.Figure | None:
     return _style(figure, 340)
 
 
-# -------------------------------------------------------------- Pipeline Health
+# -------------------------------------------------------------------- Monitoring
+
+# Status colours are reserved for health states and always paired with an
+# icon and a word, so the state never depends on colour alone.
+STATES = {
+    "ok": {"color": "#0ca30c", "icon": "✓", "word": "OK"},
+    "warn": {"color": "#fab219", "icon": "!", "word": "Check"},
+    "bad": {"color": "#d03b3b", "icon": "✕", "word": "Problem"},
+    "pending": {"color": "#d0cfca", "icon": "…", "word": "Not due yet"},
+}
+CARD_CSS = """
+<style>
+.mon-grid {display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px;}
+.mon-card {border:1px solid #e3e2de; border-left:6px solid var(--state); border-radius:8px;
+           padding:12px 14px; background:var(--block-background-fill, #fff);}
+.mon-title {font-size:13px; opacity:.75;}
+.mon-value {font-size:26px; font-weight:600; margin:2px 0;}
+.mon-detail {font-size:12px; opacity:.75;}
+.mon-state {font-size:12px; font-weight:600;}
+</style>
+"""
 
 
-def health_summary() -> str:
-    """Reports the freshness of every pipeline output in Markdown.
+def _state(value: float, ok: float, warn: float, higher_is_better: bool = True) -> str:
+    """Classifies a measure as ok, warn or bad against two thresholds.
+
+    Args:
+        value: The measured value.
+        ok: Threshold for "ok".
+        warn: Threshold for "warn"; anything beyond it is "bad".
+        higher_is_better: Direction of the thresholds.
 
     Returns:
-        One line per output with its age and a status word.
+        "ok", "warn" or "bad".
+    """
+    if not higher_is_better:
+        value, ok, warn = -value, -ok, -warn
+    if value >= ok:
+        return "ok"
+    return "warn" if value >= warn else "bad"
+
+
+def _card(title: str, value: str, detail: str, state: str) -> str:
+    """Renders one status tile as HTML.
+
+    Args:
+        title: What is measured.
+        value: The headline number.
+        detail: One line of context.
+        state: A key of STATES.
+
+    Returns:
+        An HTML fragment.
+    """
+    s = STATES[state]
+    return (
+        f'<div class="mon-card" style="--state:{s["color"]}">'
+        f'<div class="mon-title">{title}</div><div class="mon-value">{value}</div>'
+        f'<div class="mon-state" style="color:{s["color"]}">{s["icon"]} {s["word"]}</div>'
+        f'<div class="mon-detail">{detail}</div></div>'
+    )
+
+
+def monitoring_cards() -> str:
+    """Builds the status board: one tile per pipeline output.
+
+    Returns:
+        HTML with six tiles (data freshness, completeness, stations, weather,
+        model, scoring backlog).
     """
     status = queries.pipeline_status().iloc[0]
     if pd.isna(status["last_snapshot"]):
-        return EMPTY_MESSAGE
+        return f"<p>{EMPTY_MESSAGE}</p>"
 
-    def line(label, timestamp, limit_minutes):
-        if pd.isna(timestamp):
-            return f"- **{label}:** never"
-        age = _minutes_ago(timestamp)
-        state = "OK" if age <= limit_minutes else "LATE"
-        return f"- **{label}:** {_local(timestamp):%a %H:%M} ({age} min ago) - **{state}**"
-
-    model = ""
-    if pd.notna(status["last_model_mae"]):
-        model = (
-            f" Held-out error: model {status['last_model_mae']:.3f} vs "
-            f"baseline {status['last_baseline_mae']:.3f} bikes."
+    data_age = _minutes_ago(status["last_snapshot"])
+    complete = min(status["snapshots_24h"] / 144 * 100, 100)
+    cards = [
+        _card(
+            "Latest data", f"{data_age} min ago",
+            f"Snapshot of {_local(status['last_snapshot']):%a %H:%M}; expected every 10 min",
+            _state(data_age, 20, 60, higher_is_better=False),
+        ),
+        _card(
+            "Collection, last 24 h", f"{complete:.0f}%",
+            f"{int(status['snapshots_24h'])} snapshots (144 expected)",
+            _state(complete, 95, 80),
+        ),
+        _card(
+            "Stations reporting", f"{int(status['stations_reporting'])} / {int(status['stations_total'])}",
+            "Stations in the latest snapshot",
+            _state(status["stations_reporting"] / max(status["stations_total"], 1) * 100, 95, 80),
+        ),
+    ]
+    if pd.isna(status["last_weather_fetch"]):
+        cards.append(_card("Weather", "never", "Open-Meteo, expected hourly", "bad"))
+    else:
+        weather_age = _minutes_ago(status["last_weather_fetch"])
+        cards.append(
+            _card("Weather", f"{weather_age} min ago", "Open-Meteo, expected hourly",
+                  _state(weather_age, 90, 180, higher_is_better=False))
         )
-    return "\n".join(
-        [
-            line("Last snapshot (target: every 10 min)", status["last_snapshot"], 25),
-            line("Last weather fetch (target: hourly)", status["last_weather_fetch"], 90),
-            line("Last model run", status["last_model_run"], 25) + model,
-            f"- **Forecasts overdue for scoring:** {int(status['overdue_forecasts'])}",
-        ]
+    if pd.isna(status["last_model_mae"]):
+        cards.append(_card("Model error vs baseline", "not trained", "Needs about 2 hours of data", "warn"))
+    else:
+        gain = (1 - status["last_model_mae"] / status["last_baseline_mae"]) * 100
+        run_age = _minutes_ago(status["last_model_run"])
+        state = "bad" if run_age > 120 else ("ok" if gain >= -2 else "warn")
+        cards.append(
+            _card(
+                "Model error vs baseline", f"{gain:+.1f}%",
+                f"Held-out error {status['last_model_mae']:.2f} vs {status['last_baseline_mae']:.2f} "
+                f"bikes (negative = worse); trained {run_age} min ago",
+                state,
+            )
+        )
+    overdue = int(status["overdue_forecasts"])
+    cards.append(
+        _card("Forecasts awaiting a score", f"{overdue}",
+              "Due more than 15 min ago, no actual yet", _state(overdue, 0, 261, higher_is_better=False))
     )
+    return CARD_CSS + '<div class="mon-grid">' + "".join(cards) + "</div>"
 
 
-def snapshots_chart() -> go.Figure | None:
-    """Plots snapshots collected per hour against the target of 6.
+def hourly_status_chart() -> go.Figure | None:
+    """Shows, hour by hour, whether data was collected and forecasts scored.
 
     Returns:
-        A bar chart, or None without data.
+        A two-row strip of hourly tiles over the last 48 hours, or None.
     """
-    counts = queries.snapshots_per_hour()
-    if counts.empty:
+    hourly = queries.hourly_status()
+    if hourly.empty:
         return None
-    figure = px.bar(counts, x="hour", y="snapshots", labels={"hour": "", "snapshots": "Snapshots per hour"})
-    figure.update_traces(marker_color="#2a78d6")
-    figure.add_hline(y=6, line_dash="dot", line_color="#8a8984", annotation_text="target 6")
-    return _style(figure, 300)
+    rows = {"Data collected": "collection", "Forecasts scored": "scoring"}
+    codes = {"ok": 0, "warn": 1, "bad": 2, "pending": 3}
+    z = [[codes[s] for s in hourly[f"{col}_state"]] for col in rows.values()]
+    text = [list(hourly[f"{col}_text"]) for col in rows.values()]
+    colors = [STATES[k]["color"] for k in codes]
+    scale = [[i / 4 + edge, colors[i]] for i in range(4) for edge in (0, 0.25)]
+    scale = [[min(p, 1.0), c] for p, c in scale]
+    figure = go.Figure(
+        go.Heatmap(
+            x=hourly["hour"], y=list(rows), z=z, text=text, zmin=-0.5, zmax=3.5,
+            colorscale=scale, showscale=False, xgap=2, ygap=6,
+            hovertemplate="%{x|%a %H:00}<br>%{text}<extra>%{y}</extra>",
+        )
+    )
+    figure.update_layout(
+        height=230, template="plotly_white", margin={"l": 120, "r": 20, "t": 34, "b": 40},
+        yaxis={"autorange": "reversed"},
+    )
+    return figure
 
 
-def forecasts_chart() -> go.Figure | None:
-    """Plots forecasts made per hour and how many have been scored.
+def stations_chart() -> go.Figure | None:
+    """Plots how many stations reported in each snapshot over 48 hours.
 
     Returns:
-        A line chart, or None without data.
+        A line chart with the network size as reference, or None.
     """
-    counts = queries.forecasts_per_hour()
+    counts = queries.stations_per_snapshot()
     if counts.empty:
         return None
-    long = counts.melt(id_vars="hour", value_vars=["made", "scored"], var_name="forecasts", value_name="count")
-    figure = px.line(
-        long,
-        x="hour",
-        y="count",
-        color="forecasts",
-        color_discrete_sequence=["#2a78d6", "#eb6834"],
-        labels={"hour": "", "count": "Forecasts per hour"},
+    total = int(queries.pipeline_status().iloc[0]["stations_total"])
+    figure = go.Figure()
+    figure.add_scatter(
+        x=counts["time"], y=[total] * len(counts), mode="lines", name=f"All stations ({total})",
+        line={"color": "#8a8984", "dash": "dot", "width": 2}, hoverinfo="skip",
     )
+    figure.add_scatter(
+        x=counts["time"], y=counts["stations"], mode="lines", name="Stations reporting",
+        line={"color": "#2a78d6", "width": 2},
+    )
+    figure.update_layout(yaxis={"range": [0, total * 1.1], "title": "Stations"})
     return _style(figure, 300)
 
 
@@ -445,9 +553,9 @@ def refresh_all() -> tuple:
         training_chart(),
         fill_heatmap(),
         activity_chart(),
-        health_summary(),
-        snapshots_chart(),
-        forecasts_chart(),
+        monitoring_cards(),
+        hourly_status_chart(),
+        stations_chart(),
     )
 
 
@@ -498,17 +606,22 @@ def build_app() -> gr.Blocks:
             heatmap_plot = gr.Plot(label="Average fill level by area and hour, last 7 days")
             activity_plot = gr.Plot(label="Network activity by hour: dry vs rain, last 7 days")
 
-        with gr.Tab("Pipeline Health"):
-            health = gr.Markdown()
-            snapshots_plot = gr.Plot(label="Snapshots collected per hour, last 48 h")
-            forecasts_plot = gr.Plot(label="Forecasts made vs scored per hour, last 48 h")
+        with gr.Tab("Monitoring"):
+            gr.Markdown(
+                "Is the pipeline healthy? Green needs no action; amber and red say what "
+                "to check. Hourly tiles: **✓ green** complete, **! amber** partial, "
+                "**✕ red** missing, **grey** in progress or not due yet. Vancouver time."
+            )
+            status_board = gr.HTML()
+            hourly_plot = gr.Plot(label="Hour by hour, last 48 h (hover a tile for details)")
+            stations_plot = gr.Plot(label="Stations reporting per snapshot, last 48 h")
 
         outputs = [
             kpis, map_plot, empty_full_plot,
             actions_headline, moves_table, risk_table,
             acc_headline, acc_plot, area_plot, training_plot,
             heatmap_plot, activity_plot,
-            health, snapshots_plot, forecasts_plot,
+            status_board, hourly_plot, stations_plot,
         ]
         demo.load(refresh_all, outputs=outputs)
         timer.tick(refresh_all, outputs=outputs)

@@ -13,7 +13,7 @@ import pandas as pd
 from sqlalchemy import case, func, select
 
 from mobi import features
-from mobi.db import get_engine, model_runs, predictions_log, station_status, weather_hourly
+from mobi.db import get_engine, model_runs, predictions_log, station_status, stations, weather_hourly
 
 LOCAL_TZ = features.LOCAL_TZ
 
@@ -270,82 +270,127 @@ def activity_by_hour(days: int = 7) -> pd.DataFrame:
 
 
 @ttl_cache(60)
-def snapshots_per_hour(hours: int = 48) -> pd.DataFrame:
-    """Counts collected snapshots per hour (the collector targets 6).
+def hourly_status(hours: int = 48) -> pd.DataFrame:
+    """Rates each hour's data collection and forecast scoring.
+
+    Collection is "ok" with 6 snapshots (one per 10 minutes), "warn" with 1-5,
+    "bad" with none and "pending" for the hour in progress. Scoring is the share of that hour's forecasts with a
+    known outcome: "ok" from 95 %, "warn" from 50 %, "bad" below, and
+    "pending" while their target time has not passed.
 
     Args:
         hours: Length of the window, ending at the newest snapshot.
 
     Returns:
-        Columns hour (Vancouver) and snapshots.
+        One row per hour with hour (Vancouver), collection_state,
+        collection_text, scoring_state and scoring_text.
     """
-    since = _since(hours)
-    if since is None:
+    latest = latest_snapshot_time()
+    if latest is None:
         return pd.DataFrame()
+    since = latest - timedelta(hours=hours)
+    hours_index = pd.date_range(pd.Timestamp(since).floor("h"), pd.Timestamp(latest).floor("h"), freq="h")
+
     times = features.read_query(
-        select(station_status.c.snapshot_time)
-        .where(station_status.c.snapshot_time >= since)
-        .distinct()
+        select(station_status.c.snapshot_time).where(station_status.c.snapshot_time >= since).distinct()
     )
-    times["hour"] = pd.to_datetime(times["snapshot_time"]).dt.floor("h")
-    counts = times.groupby("hour").size().rename("snapshots").reset_index()
-    counts["hour"] = to_local(counts["hour"])
-    return counts
+    snapshots = (
+        pd.to_datetime(times["snapshot_time"]).dt.floor("h").value_counts().reindex(hours_index, fill_value=0)
+    )
+    p = predictions_log.c
+    logged = features.read_query(
+        select(p.base_time, p.actual.is_not(None).label("scored")).where(p.base_time >= since)
+    )
+    logged["hour"] = pd.to_datetime(logged["base_time"]).dt.floor("h")
+    scored = logged.groupby("hour")["scored"].agg(["sum", "size"]).reindex(hours_index, fill_value=0)
+
+    frame = pd.DataFrame({"hour": hours_index, "snapshots": snapshots.to_numpy()})
+    frame["collection_state"] = pd.cut(frame["snapshots"], [-1, 0, 5, 99], labels=["bad", "warn", "ok"]).astype(str)
+    frame["collection_text"] = frame["snapshots"].map(lambda n: f"{n} of 6 snapshots")
+    # The newest hour is still being collected.
+    frame.loc[frame.index[-1], "collection_state"] = "pending"
+    frame.loc[frame.index[-1], "collection_text"] += " (hour in progress)"
+
+    share = (scored["sum"] / scored["size"].where(scored["size"] > 0)).to_numpy() * 100
+    due = hours_index + timedelta(hours=2) <= pd.Timestamp(latest)  # whole hour's targets passed
+    frame["scoring_state"] = [
+        "pending" if not is_due else ("bad" if pd.isna(s) else _rate(s)) for s, is_due in zip(share, due)
+    ]
+    frame["scoring_text"] = [
+        "targets not reached yet" if not is_due else ("no forecasts" if pd.isna(s) else f"{s:.0f}% scored")
+        for s, is_due in zip(share, due)
+    ]
+    frame["hour"] = to_local(frame["hour"])
+    return frame
+
+
+def _rate(share: float) -> str:
+    """Rates a percentage of forecasts scored."""
+    return "ok" if share >= 95 else ("warn" if share >= 50 else "bad")
 
 
 @ttl_cache(60)
-def forecasts_per_hour(hours: int = 48) -> pd.DataFrame:
-    """Counts forecasts made per hour and how many have been scored.
+def stations_per_snapshot(hours: int = 48) -> pd.DataFrame:
+    """Counts the stations present in each snapshot.
 
     Args:
         hours: Length of the window, ending at the newest snapshot.
 
     Returns:
-        Columns hour (Vancouver), made and scored.
+        Columns time (Vancouver) and stations.
     """
     since = _since(hours)
     if since is None:
         return pd.DataFrame()
-    p = predictions_log.c
+    c = station_status.c
     frame = features.read_query(
-        select(p.base_time, p.actual.is_not(None).label("scored")).where(p.base_time >= since)
+        select(c.snapshot_time.label("time"), func.count().label("stations"))
+        .where(c.snapshot_time >= since)
+        .group_by(c.snapshot_time)
+        .order_by(c.snapshot_time)
     )
-    if frame.empty:
-        return frame
-    frame["hour"] = pd.to_datetime(frame["base_time"]).dt.floor("h")
-    counts = frame.groupby("hour").agg(made=("scored", "size"), scored=("scored", "sum")).reset_index()
-    counts["hour"] = to_local(counts["hour"])
-    return counts
+    frame["time"] = to_local(frame["time"])
+    return frame
 
 
 @ttl_cache(60)
 def pipeline_status() -> pd.DataFrame:
-    """Summarises the freshness of every pipeline output.
+    """Summarises the freshness and completeness of every pipeline output.
 
     Returns:
-        One row with last_snapshot, last_weather_fetch, last_model_run,
-        last_model_mae, last_baseline_mae and overdue_forecasts (forecasts whose
-        target passed more than 15 minutes ago without an actual).
+        One row with last_snapshot, snapshots_24h, stations_reporting,
+        stations_total, last_weather_fetch, last_model_run, last_model_mae,
+        last_baseline_mae and overdue_forecasts (forecasts whose target passed
+        more than 15 minutes ago without an actual).
     """
     latest = latest_snapshot_time()
+    s, p = station_status.c, predictions_log.c
     with get_engine().connect() as conn:
         last_weather = conn.execute(select(func.max(weather_hourly.c.fetched_at))).scalar()
-        last_run = conn.execute(
-            select(model_runs).order_by(model_runs.c.trained_at.desc()).limit(1)
-        ).first()
-        overdue = 0
+        last_run = conn.execute(select(model_runs).order_by(model_runs.c.trained_at.desc()).limit(1)).first()
+        stations_total = conn.execute(select(func.count()).select_from(stations)).scalar()
+        snapshots_24h = reporting = overdue = 0
         if latest is not None:
+            snapshots_24h = conn.execute(
+                select(func.count(s.snapshot_time.distinct())).where(s.snapshot_time > latest - timedelta(hours=24))
+            ).scalar()
+            reporting = conn.execute(
+                select(func.count()).select_from(station_status).where(s.snapshot_time == latest)
+            ).scalar()
             overdue = conn.execute(
                 select(func.count()).select_from(predictions_log).where(
-                    predictions_log.c.actual.is_(None),
-                    predictions_log.c.target_time < latest - timedelta(minutes=15),
-                    predictions_log.c.target_time > latest - timedelta(hours=12),
+                    p.actual.is_(None),
+                    p.target_time < latest - timedelta(minutes=15),
+                    p.target_time > latest - timedelta(hours=12),
                 )
             ).scalar()
     return pd.DataFrame(
         [
             {
                 "last_snapshot": latest,
+                "snapshots_24h": snapshots_24h,
+                "stations_reporting": reporting,
+                "stations_total": stations_total,
                 "last_weather_fetch": last_weather,
                 "last_model_run": last_run.trained_at if last_run else None,
                 "last_model_mae": last_run.mae_model if last_run else None,
