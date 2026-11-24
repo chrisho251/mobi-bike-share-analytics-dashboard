@@ -51,8 +51,9 @@ uv run python simulation/replay.py      # forecasts and scores, as if live (~6 m
 uv run python -m mobi.app               # dashboard on http://localhost:7860
 ```
 
-A banner marks the dashboard as simulation mode. See
-[simulation/README.md](simulation/README.md) for how the network is modelled.
+A banner marks the dashboard as simulation mode. Step-by-step guide with
+troubleshooting: [docs/run-with-simulation.md](docs/run-with-simulation.md).
+How the network is modelled: [simulation/README.md](simulation/README.md).
 
 ### Switch to live data
 
