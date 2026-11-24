@@ -40,6 +40,9 @@ stop the next; the run is marked failed unless only weather failed.
    of a run stays flat as history grows.
 4. **Forecast and correct** (`forecast.predict_next_hour`): log three
    forecasts per station.
+5. **Prune** (`pipeline.prune_history`): delete snapshots older than 30 days
+   and forecasts older than 14 days, measured from the newest snapshot, so
+   the database stays within Neon's free tier.
 
 ### Forecasts and the correction step
 
@@ -72,9 +75,9 @@ naive UTC; the dashboard converts to `America/Vancouver`.
 | Table | Key | Written by | Notes |
 |---|---|---|---|
 | `stations` | `station_id` | ingest (overwrite) | name, lat, lon, capacity, area |
-| `station_status` | `station_id`, `snapshot_time` | ingest (insert only) | immutable history |
+| `station_status` | `station_id`, `snapshot_time` | ingest (insert only) | history; kept 30 days |
 | `weather_hourly` | `time` | ingest (overwrite) | forecasts are replaced by observations |
-| `predictions_log` | `station_id`, `base_time` | forecast; `actual` filled by scoring | the evaluation record |
+| `predictions_log` | `station_id`, `base_time` | forecast; `actual` filled by scoring | the evaluation record; kept 14 days |
 | `model_runs` | `model_version` | forecast | held-out error of model and baseline per training run |
 | `model_store` | `name` | forecast (overwrite) | the current model, pickled, with its scikit-learn version |
 

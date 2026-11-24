@@ -2,14 +2,39 @@
 
 import logging
 from collections.abc import Callable
+from datetime import timedelta
 from typing import Any
 
 from mobi import config
-from mobi.db import init_db
-from mobi.forecast import fill_actuals, predict_next_hour
+from mobi.db import delete_before, init_db, latest_fetch_time, predictions_log, station_status
+from mobi.forecast import TRAIN_WINDOW, fill_actuals, predict_next_hour
 from mobi.ingest import ingest_stations, ingest_status, ingest_weather
 
 logger = logging.getLogger("pipeline")
+
+# Older rows are deleted every run so the database stops growing (each day adds
+# about 37,600 snapshots and as many forecasts). Snapshots must cover the
+# training window; forecasts feed the dashboard's 7-day views and the 24-hour
+# per-station selection. Weather and training runs are small and kept.
+STATUS_RETENTION = TRAIN_WINDOW + timedelta(days=2)
+PREDICTION_RETENTION = timedelta(days=14)
+
+
+def prune_history() -> int:
+    """Deletes snapshots and forecasts older than their retention period.
+
+    Ages are measured from the newest snapshot, not the clock, so nothing is
+    deleted while collection is stopped.
+
+    Returns:
+        The number of rows deleted.
+    """
+    latest = latest_fetch_time(station_status, "snapshot_time")
+    if latest is None:
+        return 0
+    return delete_before(
+        station_status, "snapshot_time", latest - STATUS_RETENTION
+    ) + delete_before(predictions_log, "target_time", latest - PREDICTION_RETENTION)
 
 
 def run_step(name: str, step: Callable[[], Any]) -> bool:
@@ -39,7 +64,8 @@ def run_pipeline() -> bool:
 
     Weather is optional: if it fails, the failure is logged but the run is
     still considered successful, because the bike counts are the essential
-    data. The forecast steps run last because they read what was just stored.
+    data. The forecast steps run after collection because they read what was
+    just stored, and old rows are pruned last.
 
     Returns:
         True if every step except weather succeeded, False otherwise.
@@ -53,6 +79,7 @@ def run_pipeline() -> bool:
     critical += [
         run_step("fill_actuals", fill_actuals),
         run_step("predict", predict_next_hour),
+        run_step("prune", prune_history),
     ]
     return all(critical)
 

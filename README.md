@@ -133,7 +133,7 @@ src/mobi/
   ingest.py      GBFS and Open-Meteo collection
   features.py    feature building (lags, target, calendar, weather)
   forecast.py    training, forecasting, correction, scoring
-  pipeline.py    one collection and forecasting cycle (entry point)
+  pipeline.py    one collection, forecasting and pruning cycle (entry point)
   actions.py     rebalancing rules
   queries.py     read-only, cached dashboard queries
   app.py         Gradio dashboard (entry point)
@@ -145,7 +145,7 @@ docs/            architecture, tech stack, simulation walkthrough
 ## Development
 
 ```bash
-uv run pytest     # 15 tests on temporary SQLite databases, no network
+uv run pytest     # 17 tests on temporary SQLite databases, no network
 ```
 
 After changing dependencies in `pyproject.toml`, refresh the lock file and the

@@ -160,6 +160,21 @@ def upsert(
         written = conn.execute(stmt).fetchall()
     return len(written)
 
+def delete_before(table: Table, column: str, cutoff: datetime) -> int:
+    """Deletes the rows whose timestamp column is older than a cutoff.
+
+    Args:
+        table: The table to delete from.
+        column: Name of an indexed DateTime column.
+        cutoff: Rows with a value strictly before this naive UTC time are
+            deleted.
+
+    Returns:
+        The number of rows deleted.
+    """
+    with get_engine().begin() as conn:
+        return conn.execute(table.delete().where(table.c[column] < cutoff)).rowcount
+
 def init_db() -> None:
     """Creates any missing tables. Existing tables are left untouched."""
     metadata.create_all(get_engine())
