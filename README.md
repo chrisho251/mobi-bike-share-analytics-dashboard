@@ -145,7 +145,7 @@ docs/            architecture, tech stack, simulation walkthrough
 ## Development
 
 ```bash
-uv run pytest     # 17 tests on temporary SQLite databases, no network
+uv run pytest     # all tests, on temporary SQLite databases, no network
 ```
 
 After changing dependencies in `pyproject.toml`, refresh the lock file and the
