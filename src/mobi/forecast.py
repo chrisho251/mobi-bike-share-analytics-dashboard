@@ -330,6 +330,13 @@ def predict_next_hour() -> int:
     latest = _latest_snapshot_time()
     if latest is None:
         return 0
+    with get_engine().connect() as conn:
+        already_forecast = conn.execute(
+            select(func.count()).select_from(predictions_log).where(predictions_log.c.base_time == latest)
+        ).scalar()
+    if already_forecast:
+        # The feed has not refreshed since the last run: nothing new to forecast.
+        return 0
     now = utcnow()
 
     frame = features.build_features(
