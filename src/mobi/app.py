@@ -7,7 +7,7 @@ Eleven panels in six tabs:
 * Forecast Accuracy - error per hour; error per area; model training runs.
 * Station Explorer  - one station's bikes and forecasts.
 * Demand Patterns   - fill level by area and hour; activity in dry vs rain.
-* Monitoring        - status board; hourly collection and scoring; stations reporting.
+* Monitoring        - status board; daily data completeness; stations reporting.
 
 Run with: uv run --extra app python -m mobi.app
 """
@@ -360,7 +360,6 @@ STATES = {
     "ok": {"color": "#0ca30c", "icon": "✓", "word": "OK"},
     "warn": {"color": "#fab219", "icon": "!", "word": "Check"},
     "bad": {"color": "#d03b3b", "icon": "✕", "word": "Problem"},
-    "pending": {"color": "#d0cfca", "icon": "…", "word": "Not due yet"},
 }
 CARD_CSS = """
 <style>
@@ -475,33 +474,32 @@ def monitoring_cards() -> str:
     return CARD_CSS + '<div class="mon-grid">' + "".join(cards) + "</div>"
 
 
-def hourly_status_chart() -> go.Figure | None:
-    """Shows, hour by hour, whether data was collected and forecasts scored.
+def completeness_chart() -> go.Figure | None:
+    """Shows, day by day, what share of the expected snapshots was collected.
 
     Returns:
-        A two-row strip of hourly tiles over the last 48 hours, or None.
+        A labelled bar chart of the last 7 days, or None without data.
     """
-    hourly = queries.hourly_status()
-    if hourly.empty:
+    daily = queries.daily_completeness()
+    if daily.empty:
         return None
-    rows = {"Data collected": "collection", "Forecasts scored": "scoring"}
-    codes = {"ok": 0, "warn": 1, "bad": 2, "pending": 3}
-    z = [[codes[s] for s in hourly[f"{col}_state"]] for col in rows.values()]
-    text = [list(hourly[f"{col}_text"]) for col in rows.values()]
-    colors = [STATES[k]["color"] for k in codes]
-    scale = [[i / 4 + edge, colors[i]] for i in range(4) for edge in (0, 0.25)]
-    scale = [[min(p, 1.0), c] for p, c in scale]
+    today = daily["day"].iloc[-1]
+    labels = [f"{pd.Timestamp(d):%a %d %b}" + (" (today)" if d == today else "") for d in daily["day"]]
     figure = go.Figure(
-        go.Heatmap(
-            x=hourly["hour"], y=list(rows), z=z, text=text, zmin=-0.5, zmax=3.5,
-            colorscale=scale, showscale=False, xgap=2, ygap=6,
-            hovertemplate="%{x|%a %H:00}<br>%{text}<extra>%{y}</extra>",
+        go.Bar(
+            x=labels,
+            y=daily["percent"],
+            text=[f"{p:.0f}%" for p in daily["percent"]],
+            textposition="outside",
+            customdata=daily[["snapshots", "expected"]],
+            hovertemplate="%{x}<br>%{customdata[0]} snapshots (%{customdata[1]} expected)<extra></extra>",
+            marker_color="#2a78d6",
+            width=0.5,
         )
     )
-    figure.update_layout(
-        height=230, template="plotly_white", margin={"l": 120, "r": 20, "t": 34, "b": 40},
-        yaxis={"autorange": "reversed"},
-    )
+    figure.update_layout(yaxis={"range": [0, 115], "title": "Collected (% of expected)", "ticksuffix": "%"})
+    figure = _style(figure, 320)
+    figure.update_layout(hovermode="closest")
     return figure
 
 
@@ -554,7 +552,7 @@ def refresh_all() -> tuple:
         fill_heatmap(),
         activity_chart(),
         monitoring_cards(),
-        hourly_status_chart(),
+        completeness_chart(),
         stations_chart(),
     )
 
@@ -608,12 +606,11 @@ def build_app() -> gr.Blocks:
 
         with gr.Tab("Monitoring"):
             gr.Markdown(
-                "Is the pipeline healthy? Green needs no action; amber and red say what "
-                "to check. Hourly tiles: **✓ green** complete, **! amber** partial, "
-                "**✕ red** missing, **grey** in progress or not due yet. Vancouver time."
+                "Is the pipeline healthy? Green tiles need no action; amber and red "
+                "ones say what to check. Times are Vancouver time."
             )
             status_board = gr.HTML()
-            hourly_plot = gr.Plot(label="Hour by hour, last 48 h (hover a tile for details)")
+            completeness_plot = gr.Plot(label="Data collected per day (100% = a snapshot every 10 minutes)")
             stations_plot = gr.Plot(label="Stations reporting per snapshot, last 48 h")
 
         outputs = [
@@ -621,7 +618,7 @@ def build_app() -> gr.Blocks:
             actions_headline, moves_table, risk_table,
             acc_headline, acc_plot, area_plot, training_plot,
             heatmap_plot, activity_plot,
-            status_board, hourly_plot, stations_plot,
+            status_board, completeness_plot, stations_plot,
         ]
         demo.load(refresh_all, outputs=outputs)
         timer.tick(refresh_all, outputs=outputs)

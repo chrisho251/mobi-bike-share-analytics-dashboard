@@ -92,7 +92,7 @@ seconds. Query results are cached for 30 seconds (live data) to 10 minutes
 | Forecast Accuracy | error per hour (7 days); error by area (24 h); training runs | data team |
 | Station Explorer | one station's bikes and forecasts (24 h) | both |
 | Demand Patterns | fill level by area and hour; activity in dry vs rainy hours | planning |
-| Monitoring | status board (data age, completeness, stations, weather, model vs baseline, scoring backlog); hour-by-hour collection and scoring status; stations reporting per snapshot | operations |
+| Monitoring | status board (data age, completeness, stations, weather, model vs baseline, scoring backlog); share of expected snapshots collected per day; stations reporting per snapshot | operations |
 
 Suggested moves follow three rules: a station is short when its corrected
 forecast is under 15 % full; a donor is over 55 % full and keeps half its

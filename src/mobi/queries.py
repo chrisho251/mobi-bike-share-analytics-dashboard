@@ -269,64 +269,45 @@ def activity_by_hour(days: int = 7) -> pd.DataFrame:
     )
 
 
-@ttl_cache(60)
-def hourly_status(hours: int = 48) -> pd.DataFrame:
-    """Rates each hour's data collection and forecast scoring.
+@ttl_cache(300)
+def daily_completeness(days: int = 7) -> pd.DataFrame:
+    """Measures how much of each day's expected data was collected.
 
-    Collection is "ok" with 6 snapshots (one per 10 minutes), "warn" with 1-5,
-    "bad" with none and "pending" for the hour in progress. Scoring is the share of that hour's forecasts with a
-    known outcome: "ok" from 95 %, "warn" from 50 %, "bad" below, and
-    "pending" while their target time has not passed.
+    A full day has 144 snapshots (one every 10 minutes). For the current day
+    only the slots up to the newest snapshot are expected.
 
     Args:
-        hours: Length of the window, ending at the newest snapshot.
+        days: Number of days to show, ending with the current one (fewer if
+            collection started more recently).
 
     Returns:
-        One row per hour with hour (Vancouver), collection_state,
-        collection_text, scoring_state and scoring_text.
+        Columns day (Vancouver date), snapshots, expected and percent.
     """
     latest = latest_snapshot_time()
     if latest is None:
         return pd.DataFrame()
-    since = latest - timedelta(hours=hours)
-    hours_index = pd.date_range(pd.Timestamp(since).floor("h"), pd.Timestamp(latest).floor("h"), freq="h")
-
     times = features.read_query(
-        select(station_status.c.snapshot_time).where(station_status.c.snapshot_time >= since).distinct()
+        select(station_status.c.snapshot_time)
+        .where(station_status.c.snapshot_time >= latest - timedelta(days=days))
+        .distinct()
     )
-    snapshots = (
-        pd.to_datetime(times["snapshot_time"]).dt.floor("h").value_counts().reindex(hours_index, fill_value=0)
-    )
-    p = predictions_log.c
-    logged = features.read_query(
-        select(p.base_time, p.actual.is_not(None).label("scored")).where(p.base_time >= since)
-    )
-    logged["hour"] = pd.to_datetime(logged["base_time"]).dt.floor("h")
-    scored = logged.groupby("hour")["scored"].agg(["sum", "size"]).reindex(hours_index, fill_value=0)
-
-    frame = pd.DataFrame({"hour": hours_index, "snapshots": snapshots.to_numpy()})
-    frame["collection_state"] = pd.cut(frame["snapshots"], [-1, 0, 5, 99], labels=["bad", "warn", "ok"]).astype(str)
-    frame["collection_text"] = frame["snapshots"].map(lambda n: f"{n} of 6 snapshots")
-    # The newest hour is still being collected.
-    frame.loc[frame.index[-1], "collection_state"] = "pending"
-    frame.loc[frame.index[-1], "collection_text"] += " (hour in progress)"
-
-    share = (scored["sum"] / scored["size"].where(scored["size"] > 0)).to_numpy() * 100
-    due = hours_index + timedelta(hours=2) <= pd.Timestamp(latest)  # whole hour's targets passed
-    frame["scoring_state"] = [
-        "pending" if not is_due else ("bad" if pd.isna(s) else _rate(s)) for s, is_due in zip(share, due)
-    ]
-    frame["scoring_text"] = [
-        "targets not reached yet" if not is_due else ("no forecasts" if pd.isna(s) else f"{s:.0f}% scored")
-        for s, is_due in zip(share, due)
-    ]
-    frame["hour"] = to_local(frame["hour"])
+    local = to_local(times["snapshot_time"])
+    counts = local.dt.date.value_counts().sort_index()
+    latest_local = _local_timestamp(latest)
+    # Days before collection started would read as failures, so start there.
+    first_day = max(latest_local.date() - timedelta(days=days - 1), counts.index.min())
+    frame = pd.DataFrame({"day": pd.date_range(first_day, latest_local.date(), freq="D").date})
+    frame["snapshots"] = frame["day"].map(counts).fillna(0).astype(int)
+    midnight = latest_local.normalize()
+    elapsed_slots = int((latest_local - midnight) / timedelta(minutes=10)) + 1
+    frame["expected"] = [elapsed_slots if d == latest_local.date() else 144 for d in frame["day"]]
+    frame["percent"] = (frame["snapshots"] / frame["expected"] * 100).clip(upper=100)
     return frame
 
 
-def _rate(share: float) -> str:
-    """Rates a percentage of forecasts scored."""
-    return "ok" if share >= 95 else ("warn" if share >= 50 else "bad")
+def _local_timestamp(value) -> pd.Timestamp:
+    """Converts one naive UTC timestamp to Vancouver time."""
+    return pd.Timestamp(value).tz_localize("UTC").tz_convert(LOCAL_TZ)
 
 
 @ttl_cache(60)
