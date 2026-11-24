@@ -1,0 +1,262 @@
+station_id,name,lat,lon,capacity,area
+0001,10th & Cambie,49.262487,-123.114397,35,Fairview & Mount Pleasant
+0002,Burrard Station (Melville & Dunsmuir),49.285871,-123.12105,28,Downtown
+0004,Yaletown-Roundhouse Station,49.274566,-123.121817,16,Downtown
+0005,Dunsmuir & Beatty,49.279764,-123.110154,26,Downtown
+0006,Olympic Village Station,49.266314,-123.116011,26,Fairview & Mount Pleasant
+0007,12th & Yukon (City Hall),49.260599,-123.113504,12,Fairview & Mount Pleasant
+0008,7th & Ash,49.26496,-123.116934,16,Fairview & Mount Pleasant
+0009,Spyglass & Seawall,49.270877,-123.115103,14,Fairview & Mount Pleasant
+0010,Stamps Landing,49.26893,-123.11813,14,Fairview & Mount Pleasant
+0011,Ontario & Seawall,49.271721,-123.104207,20,Fairview & Mount Pleasant
+0012,Dunsmuir & Richards,49.282214,-123.114101,22,Downtown
+0013,Maple Tree Square,49.283482,-123.103738,25,Downtown
+0014,Canada Place,49.28725,-123.11298,26,Downtown
+0015,Granville & Georgia,49.282409,-123.118541,20,Downtown
+0016,Pender & Burrard,49.287097,-123.118551,26,Downtown
+0017,Marinaside & Davie,49.273471,-123.118016,22,Downtown
+0019,Robson & Hornby,49.282758,-123.122092,30,Downtown
+0021,Cordova & Granville,49.28567,-123.112543,18,Downtown
+0024,Hornby & Pender,49.28602,-123.116624,22,Downtown
+0025,Homer & Robson (Vancouver Public Library),49.279739,-123.116251,20,Downtown
+0026,Beatty & Robson,49.27744,-123.11432,20,Downtown
+0027,Beatty & Nelson,49.275679,-123.116963,14,Downtown
+0028,Davie & Beach,49.287528,-123.142139,30,West End
+0030,Abbott & Cordova,49.28271,-123.10683,14,Downtown
+0031,Morton & Denman,49.28803,-123.142135,26,West End
+0032,Comox & Denman,49.288444,-123.139203,18,West End
+0034,Cordova & Bute,49.289124,-123.12196,14,Downtown
+0035,Coal Harbour Community Centre,49.29043,-123.12574,22,Stanley Park & Coal Harbour
+0036,Bute & Robson,49.28616,-123.12675,24,Downtown
+0037,Hornby & Nelson,49.28062,-123.12482,18,Downtown
+0039,Helmcken & Burrard,49.279938,-123.127478,15,Downtown
+0040,Cardero & Davie,49.285512,-123.1384,18,West End
+0041,Cardero & Robson,49.289255,-123.132677,26,West End
+0044,Pacific & Richards,49.273663,-123.127075,14,Downtown
+0045,Beach & Hornby,49.27551,-123.13307,22,Downtown
+0047,Chilco & Beach,49.28972,-123.144028,14,West End
+0048,Comox & Broughton,49.285253,-123.134356,12,West End
+0050,Bute & Comox,49.283343,-123.131099,22,West End
+0052,Cambie & Water,49.284605,-123.108662,32,Downtown
+0053,Keefer & Abbott,49.279821,-123.10802,28,Downtown
+0054,Expo & Carrall,49.278004,-123.105664,16,Downtown
+0055,Keefer & Columbia,49.279342,-123.101822,14,Downtown
+0057,Marinaside & Cooperage,49.273833,-123.114373,26,Downtown
+0058,Richards & Smithe,49.279259,-123.119145,18,Downtown
+0060,Bidwell & Burnaby,49.28526,-123.141809,26,West End
+0063,Robson & Granville,49.281506,-123.120101,24,Downtown
+0064,Expo & Smithe,49.276115,-123.114496,14,Downtown
+0065,Cypress & Cornwall,49.272827,-123.147744,22,Kitsilano
+0068,Cypress & 10th,49.262944,-123.148109,14,Kitsilano
+0069,7th & Granville,49.2653,-123.13811,14,Kitsilano
+0070,10th & Granville,49.262598,-123.138921,14,Kitsilano
+0071,14th & Granville,49.258935,-123.139031,14,Kitsilano
+0072,14th & Cambie,49.258763,-123.115392,14,Fairview & Mount Pleasant
+0073,Ontario & 5th,49.266724,-123.104824,20,Fairview & Mount Pleasant
+0074,10th & Main,49.262141,-123.101961,18,Fairview & Mount Pleasant
+0075,Arbutus & 10th,49.262835,-123.152626,18,Kitsilano
+0076,Cypress & 4th,49.268269,-123.147885,18,Kitsilano
+0077,Vanier Park,49.275717,-123.142564,28,West End
+0078,Nelson & Mainland,49.276436,-123.11877,20,Downtown
+0079,Nelson & Richards,49.277844,-123.120942,18,Downtown
+0081,7th & Heather,49.265089,-123.119425,18,Fairview & Mount Pleasant
+0082,Richards & Davie,49.275683,-123.124388,14,Downtown
+0083,Aquatic Centre,49.27821,-123.136972,40,West End
+0084,Beach & Broughton,49.281301,-123.139108,22,West End
+0087,Broughton & Davie,49.283749,-123.136133,22,West End
+0088,Harwood & Bute,49.28026,-123.135244,20,West End
+0089,Burrard & Drake,49.27808,-123.130557,24,Downtown
+0092,Chilco & Barclay,49.291909,-123.140713,18,West End
+0093,Chilco & Robson,49.293257,-123.138563,20,Stanley Park & Coal Harbour
+0096,Nicola & Robson,49.288506,-123.131238,18,West End
+0098,Carrall & Hastings,49.28117,-123.104419,18,Downtown
+0099,šxʷƛ̓ənəq Xwtl'e7énḵ Square - Vancouver Art Gallery,49.283227,-123.120523,28,Downtown
+0101,Stanley Park - Vancouver Aquarium,49.299292,-123.130281,16,Stanley Park & Coal Harbour
+0102,Stanley Park - Second Beach North,49.29535,-123.15074,28,Stanley Park & Coal Harbour
+0103,Stanley Park - Third Beach Parking Lot,49.302577,-123.155616,38,Stanley Park & Coal Harbour
+0104,Stanley Park - Second Beach South,49.294318,-123.148808,18,West End
+0105,Stanley Park - Totem Poles,49.298657,-123.121176,20,Stanley Park & Coal Harbour
+0106,Heather & 14th,49.259183,-123.120126,16,Fairview & Mount Pleasant
+0107,8th & Ontario,49.263837,-123.105173,16,Fairview & Mount Pleasant
+0108,1st & Chestnut,49.270721,-123.146175,26,Kitsilano
+0109,7th & Arbutus,49.265605,-123.152566,16,Kitsilano
+0110,Yew & 5th,49.26753,-123.15524,16,Kitsilano
+0113,Arbutus & 16th,49.257654,-123.153212,12,Kitsilano
+0114,Cypress & 14th,49.25919,-123.148268,12,Kitsilano
+0119,Quebec & 3rd,49.26853,-123.10266,20,Fairview & Mount Pleasant
+0121,Heather & 10th,49.26213,-123.11989,22,Fairview & Mount Pleasant
+0122,Haro & Denman,49.290587,-123.13625,20,West End
+0124,Richards & Cordova,49.284554,-123.111031,14,Downtown
+0126,Thurlow & Pendrell,49.280881,-123.130672,16,Downtown
+0129,Richards & Robson,49.280216,-123.117639,20,Downtown
+0130,Heather & 16th,49.256845,-123.120071,12,Fairview & Mount Pleasant
+0132,14th & Ontario,49.25849,-123.104799,16,Fairview & Mount Pleasant
+0133,Ontario & 16th,49.256825,-123.105234,14,Fairview & Mount Pleasant
+0134,14th & Main,49.25845,-123.100377,22,Fairview & Mount Pleasant
+0136,David Lam Park,49.270905,-123.126006,18,Downtown
+0137,Beach & Seymour,49.273568,-123.129935,18,Downtown
+0138,Richards & Helmcken,49.277141,-123.122589,18,Downtown
+0139,Burrard & 4th,49.267859,-123.145782,16,Kitsilano
+0140,Burrard & 7th,49.265336,-123.145823,16,Kitsilano
+0142,Beach & Cardero,49.283298,-123.142288,22,West End
+0143,Charleson Park,49.267628,-123.127698,14,Fairview & Mount Pleasant
+0144,Wylie & 2nd,49.267725,-123.11311,18,Fairview & Mount Pleasant
+0147,Chestnut & McNicoll,49.275938,-123.145939,16,Kitsilano
+0148,Creekside Park North,49.2756,-123.10266,18,Fairview & Mount Pleasant
+0150,Alexander & Main,49.284157,-123.099917,20,Downtown
+0152,Arbutus Greenway & 14th,49.258924,-123.152591,20,Kitsilano
+0153,Arbutus Greenway & Fir,49.266774,-123.141135,16,Kitsilano
+0154,Kitsilano Beach Park,49.273355,-123.154493,36,Kitsilano
+0155,McNicoll & Arbutus,49.276292,-123.150592,30,Kitsilano
+0159,Vine & 4th,49.268339,-123.157443,18,Kitsilano
+0161,Alexander & Dunlevy,49.284062,-123.095097,14,Downtown
+0165,Columbia & 5th,49.266476,-123.109389,18,Fairview & Mount Pleasant
+0166,Alder & 11th,49.261742,-123.13148,14,Fairview & Mount Pleasant
+0171,Yukon & 6th,49.265939,-123.1129,18,Fairview & Mount Pleasant
+0172,10th & Columbia,49.262206,-123.109091,14,Fairview & Mount Pleasant
+0173,Columbia & 1st,49.269969,-123.109623,24,Fairview & Mount Pleasant
+0174,1st & Manitoba,49.27023,-123.10651,28,Fairview & Mount Pleasant
+0176,10th & Ontario,49.262062,-123.104656,20,Fairview & Mount Pleasant
+0177,Quebec & 1st,49.27033,-123.10275,18,Fairview & Mount Pleasant
+0179,11th & Kingsway,49.261122,-123.097571,16,Fairview & Mount Pleasant
+0180,Columbia & 14th,49.258902,-123.109596,14,Fairview & Mount Pleasant
+0181,Denman & Bayshore,49.293264,-123.132861,22,Stanley Park & Coal Harbour
+0186,10th & Kingsway,49.261973,-123.09725,20,Fairview & Mount Pleasant
+0187,Bute & Davie,49.28226,-123.13271,18,West End
+0189,Granville Island,49.27029,-123.135025,32,Downtown
+0190,Melville & Bute,49.287782,-123.12395,14,Downtown
+0191,7th & Laurel,49.265071,-123.123864,14,Fairview & Mount Pleasant
+0192,7th &  Alder,49.265198,-123.131043,16,Fairview & Mount Pleasant
+0193,Science World,49.273691,-123.102232,16,Fairview & Mount Pleasant
+0196,Hornby & Drake,49.277178,-123.13,24,Downtown
+0197,1st & Scotia,49.268503,-123.097501,20,Fairview & Mount Pleasant
+0198,5th & Main,49.266456,-123.100324,20,Fairview & Mount Pleasant
+0199,Georgia & Main,49.278529,-123.100017,20,Downtown
+0200,Cardero & Bayshore,49.291597,-123.129158,20,Stanley Park & Coal Harbour
+0201,Rogers Tower,49.288682,-123.11818,18,Downtown
+0202,14th & Oak,49.258761,-123.127071,14,Fairview & Mount Pleasant
+0204,York & Yew,49.271741,-123.155421,20,Kitsilano
+0205,Pine & 10th,49.262822,-123.14338,20,Kitsilano
+0206,8th & Scotia,49.263635,-123.099236,12,Fairview & Mount Pleasant
+0207,Alberni & Jervis,49.28763,-123.127245,20,Downtown
+0209,Stanley Park - Information Booth,49.297933,-123.130758,30,Stanley Park & Coal Harbour
+0210,Burrard & 14th,49.259469,-123.145718,18,Kitsilano
+0211,14th & Alder,49.258819,-123.131317,10,Fairview & Mount Pleasant
+0212,Union & Dunlevy,49.277595,-123.09583,16,Downtown
+0213,Pender & Gore,49.280284,-123.097052,14,Downtown
+0215,Princess & Union,49.277615,-123.091654,12,East Van
+0217,Smithe & Burrard,49.282503,-123.124697,18,Downtown
+0218,Carrall & Seawall,49.276294,-123.106534,18,Downtown
+0219,Hawks & Union,49.277333,-123.087359,16,East Van
+0221,Glen & Union,49.277469,-123.081315,14,East Van
+0222,Adanac & McLean,49.277665,-123.073653,22,East Van
+0223,Commercial & Adanac,49.277436,-123.070427,16,East Van
+0224,Pender & Commercial,49.280332,-123.070068,16,East Van
+0225,McLean & Pender,49.280427,-123.074082,16,East Van
+0227,Campbell & Hastings,49.280852,-123.084746,14,East Van
+0228,Keefer & Hawks,49.279235,-123.087528,16,East Van
+0229,Keefer & Princess,49.279369,-123.091241,14,East Van
+0230,Alexander & Railway,49.283992,-123.091206,20,East Van
+0231,Napier & Commercial,49.274881,-123.069323,14,East Van
+0232,Britannia Parking Lot,49.275882,-123.071865,14,East Van
+0233,Thornton & National,49.273777,-123.092723,14,East Van
+0235,Charles & Commercial,49.273103,-123.069892,22,East Van
+0236,Keith & 6th,49.265005,-123.079481,28,East Van
+0239,Grant & Commercial,49.271377,-123.069416,14,East Van
+0240,2nd & Commercial,49.268616,-123.069908,22,East Van
+0241,4th & Commercial,49.266969,-123.069936,14,East Van
+0242,8th & Commercial,49.263242,-123.070521,20,East Van
+0244,10th & Commercial,49.261403,-123.070102,26,East Van
+0245,Woodland & 10th,49.261263,-123.073707,14,East Van
+0246,Glen & Broadway,49.262242,-123.081459,18,East Van
+0248,St George & Broadway,49.262321,-123.09306,14,Fairview & Mount Pleasant
+0249,7th & Woodland,49.264251,-123.073853,12,East Van
+0250,Woodland & 4th,49.266751,-123.073501,14,East Van
+0252,Woodland & Graveley,49.270684,-123.073562,12,East Van
+0253,Charles & Woodland,49.2731,-123.0732,13,East Van
+0254,Grandview & Commercial,49.263746,-123.069892,16,East Van
+0255,18th & Main,49.254667,-123.101389,16,Fairview & Mount Pleasant
+0256,Prince Edward & 16th,49.256694,-123.096579,14,Fairview & Mount Pleasant
+0257,Prince Edward & 14th,49.258352,-123.096337,14,Fairview & Mount Pleasant
+0258,13th & St George,49.258817,-123.092797,16,Fairview & Mount Pleasant
+0260,10th & Fraser,49.26151,-123.089413,14,Fairview & Mount Pleasant
+0261,8th & Fraser,49.263382,-123.088837,16,Fairview & Mount Pleasant
+0262,8th & Prince Edward,49.263518,-123.09568,18,Fairview & Mount Pleasant
+0265,St Catherines & 10th,49.261353,-123.085333,12,East Van
+0266,St Catherines & 7th,49.264466,-123.085183,20,East Van
+0272,Pender & Victoria,49.280197,-123.065859,16,East Van
+0273,Victoria & 4th,49.266725,-123.065925,16,East Van
+0274,Victoria & 10th,49.261188,-123.066009,12,East Van
+0278,15th & Victoria (Trout Lake),49.256857,-123.065646,18,East Van
+0280,Triumph & Victoria,49.283986,-123.065264,16,East Van
+0281,Windsor & 14th,49.257985,-123.083366,14,East Van
+0282,14th & Fraser,49.257939,-123.089531,16,Fairview & Mount Pleasant
+0283,15th & Knight,49.256496,-123.075426,14,East Van
+0285,Commercial & Pandora,49.283236,-123.070443,16,East Van
+0287,Carolina & Great Northern Way,49.267266,-123.090786,16,Fairview & Mount Pleasant
+0297,6th & Prince Edward,49.265242,-123.095577,16,Fairview & Mount Pleasant
+0298,6th & Carolina,49.265213,-123.090785,16,Fairview & Mount Pleasant
+0300,Bute & Barclay,49.284893,-123.128685,30,Downtown
+0305,Georgia & Homer,49.280787,-123.115271,18,Downtown
+0308,Seymour & Cordova,49.28512,-123.11242,19,Downtown
+0310,Jervis & Robson,49.286646,-123.129232,20,West End
+0311,13th & Cambie,49.259579,-123.114769,14,Fairview & Mount Pleasant
+0313,Nelson & Denman,49.289071,-123.138407,18,West End
+0314,Rolston & Granville,49.274232,-123.129998,22,Downtown
+0318,Granville & Neon,49.27549,-123.12882,20,Downtown
+0319,Pacific & Rolston,49.2749,-123.12898,20,Downtown
+0352,Commercial & 20th,49.252656,-123.067965,20,East Van
+0354,Station & Terminal,49.272172,-123.097978,18,Fairview & Mount Pleasant
+0400,Jericho Beach,49.271221,-123.191133,26,Kitsilano
+0403,Broadway & Alma,49.26448,-123.18666,18,Kitsilano
+0410,Alma & Point Grey,49.27247,-123.185643,24,Kitsilano
+0414,Dunbar & 6th,49.266636,-123.183661,16,Kitsilano
+0415,Dunbar & Broadway,49.264579,-123.18373,26,Kitsilano
+0431,Blenheim & 4th,49.268837,-123.177633,23,Kitsilano
+0440,Point Grey & Blenheim,49.271471,-123.17731,14,Kitsilano
+0443,Balaclava & 6th,49.266924,-123.173849,16,Kitsilano
+0444,Balaclava & Broadway,49.264483,-123.173926,18,Kitsilano
+0450,Point Grey & Bayswater,49.271044,-123.170661,16,Kitsilano
+0452,8th & Macdonald,49.264928,-123.168068,20,Kitsilano
+0460,Trafalgar & Cornwall,49.272969,-123.164325,20,Kitsilano
+0464,Trafalgar & Broadway,49.264326,-123.164725,16,Kitsilano
+0470,Balsam & Cornwall,49.273011,-123.159663,18,Kitsilano
+0480,Arbutus & Nanton,49.247854,-123.153422,18,Kitsilano
+0482,East Blvd & 37th,49.238161,-123.155117,16,Kitsilano
+0484,Yew & Broadway,49.263523,-123.155267,18,Kitsilano
+0505,28th & Willow,49.246243,-123.124373,20,Fairview & Mount Pleasant
+0511,Heather & 18th,49.255034,-123.120226,16,Fairview & Mount Pleasant
+0516,Heather & 29th,49.245535,-123.120496,22,Fairview & Mount Pleasant
+0524,King Edward & Cambie,49.249184,-123.116141,18,Fairview & Mount Pleasant
+0526,29th & Cambie,49.245135,-123.116098,20,Fairview & Mount Pleasant
+0531,18th & Cambie,49.254818,-123.114785,20,Fairview & Mount Pleasant
+0532,22nd & Cambie,49.251358,-123.115637,14,Fairview & Mount Pleasant
+0554,Ontario & 23rd,49.249722,-123.104991,12,Fairview & Mount Pleasant
+0557,30th & Ontario,49.243375,-123.104978,22,Fairview & Mount Pleasant
+0561,20th & Main,49.252691,-123.101289,16,Fairview & Mount Pleasant
+0563,22nd & Main,49.25094,-123.101306,14,Fairview & Mount Pleasant
+0565,26th & Main,49.24797,-123.10151,18,Fairview & Mount Pleasant
+0611,Wall & Eton,49.287464,-123.060771,18,East Van
+0617,Adanac & Lakewood,49.27751,-123.061429,20,East Van
+0621,Lakewood & Oxford,49.285575,-123.061575,18,East Van
+0631,Lakewood & Triumph,49.283968,-123.061615,16,East Van
+0642,Franklin & Nanaimo,49.282087,-123.056909,20,East Van
+0715,Trimble & 8th,49.2658,-123.20596,20,Kitsilano
+0716,Sasamat & 10th,49.264019,-123.209176,22,Kitsilano
+2112,Place Vanier,49.26518,-123.25868,16,Kitsilano
+2114,West Mall Swing Space Building,49.263073,-123.254307,20,Kitsilano
+2116,Orchard Commons,49.259999,-123.250902,26,Kitsilano
+2117,Totem Park,49.2585,-123.2521,24,Kitsilano
+2127,Thunderbird & Thunderbird,49.25976,-123.2479,20,Kitsilano
+2131,Brock Commons,49.269172,-123.25279,20,Kitsilano
+2132,IK Barber Learning Centre,49.267561,-123.252261,20,Kitsilano
+2134,UBC Bookstore,49.265207,-123.250139,12,Kitsilano
+2136,Agronomy & East Mall,49.261736,-123.24648,18,Kitsilano
+2142,qəlɬaləməcən leləm | Orca House,49.26875,-123.25004,22,Kitsilano
+2143,War Memorial Gym,49.266579,-123.248549,28,Kitsilano
+2154,Strangway Building,49.2661,-123.24568,24,Kitsilano
+2156,Pharmaceutical Sciences,49.26262,-123.2431,24,Kitsilano
+2157,Thunderbird Parkade,49.261655,-123.241924,18,Kitsilano
+2167,Acadia Park,49.26278,-123.23712,20,Kitsilano
+2252,Wesbrook Village - Berton & Shrum,49.25478,-123.23621,28,Kitsilano
+2255,Binning & Wesbrook,49.2506,-123.23238,11,Kitsilano
