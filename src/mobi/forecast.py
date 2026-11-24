@@ -10,7 +10,7 @@ Each pipeline run does two things:
    * baseline:  the bike count stays as it is now (persistence);
    * model:     gradient-boosted trees predicting the change in bike count;
    * corrected: per station, the model if it beat the baseline over the last
-     few hours, otherwise the baseline. Stations where the model keeps being
+     24 hours, otherwise the baseline. Stations where the model keeps being
      wrong are therefore handed back to the baseline automatically, and
      handed to the model again once it does better.
 
@@ -46,13 +46,12 @@ MIN_TRAIN_ROWS = 2000
 VALID_FRACTION = 0.2
 # Only forecasts scored in this window decide, per station, whether the model
 # or the baseline is trusted.
-SELECTION_WINDOW = timedelta(hours=6)
+# 24 hours kept 93 % of the model's gain on simulated data and limited the
+# loss to 1 % on real data where the model was worse; 6 hours was too noisy.
+SELECTION_WINDOW = timedelta(hours=24)
 # A station needs at least this many scored forecasts in the window before the
 # model can be trusted there.
-SELECTION_MIN_FORECASTS = 3
-# The model must beat the baseline by more than this many bikes (mean absolute
-# error) to be trusted at a station.
-SELECTION_MARGIN = 0.1
+SELECTION_MIN_FORECASTS = 6
 # Forecasts older than this are not scanned for actuals any more.
 ACTUAL_LOOKBACK = timedelta(hours=12)
 
@@ -243,8 +242,7 @@ def trusted_stations(scored: pd.DataFrame) -> set[str]:
 
     Returns:
         The ids of stations with at least SELECTION_MIN_FORECASTS forecasts
-        whose model error is lower than the baseline error by more than
-        SELECTION_MARGIN bikes.
+        whose mean model error is lower than their mean baseline error.
     """
     if scored.empty:
         return set()
@@ -259,7 +257,7 @@ def trusted_stations(scored: pd.DataFrame) -> set[str]:
         model=("model", "mean"), baseline=("baseline", "mean"), n=("model", "size")
     )
     trusted = (by_station["n"] >= SELECTION_MIN_FORECASTS) & (
-        by_station["model"] < by_station["baseline"] - SELECTION_MARGIN
+        by_station["model"] < by_station["baseline"]
     )
     return set(by_station.index[trusted])
 

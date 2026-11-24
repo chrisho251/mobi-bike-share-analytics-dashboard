@@ -44,7 +44,7 @@ stop the next; the run is marked failed unless only weather failed.
 |---|---|
 | Baseline | Bikes stay as they are now (persistence). |
 | Model | Current bikes plus the model's predicted change, clipped to 0..capacity. |
-| Corrected | The model at stations where it beat the baseline over the last 6 hours (at least 3 scored forecasts, by more than 0.1 bikes); the baseline elsewhere. |
+| Corrected | The model at stations where it beat the baseline over the last 24 hours (at least 6 scored forecasts); the baseline elsewhere. |
 
 The correction closes the loop between forecasts and outcomes: every forecast
 is scored one hour later, and those scores decide, station by station, which

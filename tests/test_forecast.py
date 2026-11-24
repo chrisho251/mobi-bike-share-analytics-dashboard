@@ -23,9 +23,9 @@ def _scored(station: str, model_errors: list[float], baseline_errors: list[float
 def test_model_is_trusted_only_where_it_beat_the_baseline():
     scored = pd.concat(
         [
-            _scored("good", [0, 0, 0], [2, 2, 2]),
-            _scored("bad", [2, 2, 2], [0, 0, 0]),
-            _scored("too_few", [0], [2]),
+            _scored("good", [0] * 6, [2] * 6),
+            _scored("bad", [2] * 6, [0] * 6),
+            _scored("too_few", [0] * 5, [2] * 5),
         ]
     )
 
