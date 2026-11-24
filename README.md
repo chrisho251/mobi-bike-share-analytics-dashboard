@@ -28,10 +28,11 @@ the result into a list of bike moves.
 - **Scores itself.** One hour after each forecast, the observed count is
   stored next to it, and the dashboard tracks the error per hour, per area and
   per training run.
-- **Suggests moves.** Stations forecast to drop below 15 % full are topped up
-  from the nearest stations with spare bikes within 2 km, full stations
+- **Suggests van trips.** Stations forecast to drop below 15 % full are topped
+  up from the nearest stations with spare bikes within 2 km, full stations
   first. Stations forecast over 90 % full are emptied into nearby stations
-  with room, so riders can return bikes.
+  with room, so riders can return bikes. Moves from the same station are
+  grouped into trips of up to 20 bikes.
 - **Runs offline** on a simulated network with real station locations, so the
   dashboard and the forecasting code can be explored without credentials.
 
@@ -42,7 +43,7 @@ Six tabs, refreshed every minute:
 | Tab | For | Shows |
 |---|---|---|
 | Live Overview | dispatcher | station map coloured by fill level; empty and full stations over 24 h |
-| Next-Hour Actions | dispatcher | suggested bike moves; stations at risk in the next hour, most urgent first |
+| Next-Hour Actions | dispatcher | suggested van trips; stations at risk in the next hour, most urgent first |
 | Forecast Accuracy | data team | error of the three forecasts per hour and per area; held-out error of each training run |
 | Station Explorer | both | one station's bikes over 24 h with the forecasts made an hour earlier |
 | Demand Patterns | planning | fill level by area and hour of day; activity in dry and rainy hours |
@@ -146,7 +147,7 @@ docs/            architecture, tech stack, simulation walkthrough
 ## Development
 
 ```bash
-uv run pytest     # 17 tests on temporary SQLite databases, no network
+uv run pytest     # 18 tests on temporary SQLite databases, no network
 ```
 
 After changing dependencies in `pyproject.toml`, refresh the lock file and the

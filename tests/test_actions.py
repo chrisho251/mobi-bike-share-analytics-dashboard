@@ -75,7 +75,32 @@ def test_short_station_takes_from_a_full_station_first():
     ]
 
 
-def test_no_forecast_means_no_moves():
+def test_moves_are_grouped_into_van_trips(monkeypatch):
+    monkeypatch.setattr(actions, "VAN_CAPACITY", 5)
+    moves = pd.DataFrame(
+        {
+            "from_station": ["A", "A", "B"],
+            "to_station": ["X", "Y", "Z"],
+            "bikes": [4, 3, 2],
+            "distance_km": [0.5, 1.2, 0.3],
+            "to_area": "Downtown",
+            "reason": ["Empty soon", "Full soon", "Empty soon"],
+        }
+    )
+
+    trips = actions.plan_trips(moves)
+
+    assert trips[["pickup", "bikes", "drop_offs", "farthest_km", "reason"]].to_dict("records") == [
+        {"pickup": "A", "bikes": 5, "drop_offs": "X (4), Y (1)", "farthest_km": 1.2,
+         "reason": "Empty soon + Full soon"},
+        {"pickup": "A", "bikes": 2, "drop_offs": "Y (2)", "farthest_km": 1.2, "reason": "Full soon"},
+        {"pickup": "B", "bikes": 2, "drop_offs": "Z (2)", "farthest_km": 0.3, "reason": "Empty soon"},
+    ]
+    assert trips["trip"].tolist() == [1, 2, 3]
+
+
+def test_no_forecast_means_no_moves_or_trips():
     frame = _overview([1.0, 18.0], [49.28, 49.281]).assign(pred_corrected=None)
 
     assert actions.plan_moves(frame).empty
+    assert actions.plan_trips(actions.plan_moves(frame)).empty

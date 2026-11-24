@@ -1,7 +1,7 @@
 """Turns next-hour forecasts into concrete rebalancing suggestions.
 
 A dispatcher cannot act on "station 4321 will have 0.8 bikes". They need
-"move 4 bikes from X to Y". The rules below are deliberately simple so
+"take 6 bikes from X to Y and Z". The rules below are deliberately simple so
 they can be explained in one sentence each:
 
 * A station is short if its forecast is under 15 % full; it is topped up
@@ -13,6 +13,8 @@ they can be explained in one sentence each:
   other stations over 55 % full. A giving station keeps half its capacity.
 * Bikes a full station still has to lose go to the nearest stations within
   MAX_KM that are under 50 % full, filling them up to 50 %.
+* Moves from the same station are grouped into van trips of at most
+  VAN_CAPACITY bikes.
 
 Every planned move updates the forecast bikes of both stations, so no bike is
 promised twice.
@@ -32,10 +34,13 @@ DONOR_FILL = 0.55
 DONOR_KEEP = 0.50
 RECEIVER_FILL = 0.50
 MAX_KM = 2.0
+# Bikes one van carries per trip. An assumption: set it to the real fleet's.
+VAN_CAPACITY = 20
 
 EMPTY_SOON = "Empty soon"
 FULL_SOON = "Full soon"
 MOVE_COLUMNS = ["from_station", "to_station", "bikes", "distance_km", "to_area", "reason"]
+TRIP_COLUMNS = ["trip", "pickup", "bikes", "drop_offs", "farthest_km", "reason"]
 
 
 def _usable(frame: pd.DataFrame) -> pd.DataFrame:
@@ -158,3 +163,53 @@ def plan_moves(frame: pd.DataFrame) -> pd.DataFrame:
             if count > 0:
                 move(source, target, count, distance, FULL_SOON)
     return pd.DataFrame(moves, columns=MOVE_COLUMNS)
+
+
+def plan_trips(moves: pd.DataFrame) -> pd.DataFrame:
+    """Groups moves into van trips: one pickup station, up to VAN_CAPACITY bikes.
+
+    Moves keep their order of urgency: a trip is numbered by its most urgent
+    move, and a pickup with more bikes than a van holds becomes several trips.
+
+    Args:
+        moves: The output of plan_moves().
+
+    Returns:
+        One row per trip with trip number, pickup station, bikes, the drop-offs
+        as text ("Station A (4), Station B (2)"), the farthest drop-off in km
+        and the reasons. Empty if there are no moves.
+    """
+    if moves.empty:
+        return pd.DataFrame(columns=TRIP_COLUMNS)
+    trips: list[dict] = []
+    open_trip: dict[str, dict] = {}
+    for move in moves.itertuples():
+        remaining = int(move.bikes)
+        while remaining > 0:
+            trip = open_trip.get(move.from_station)
+            if trip is None or trip["bikes"] == VAN_CAPACITY:
+                trip = {"pickup": move.from_station, "bikes": 0, "stops": [], "km": 0.0, "reasons": []}
+                trips.append(trip)
+                open_trip[move.from_station] = trip
+            count = min(remaining, VAN_CAPACITY - trip["bikes"])
+            trip["bikes"] += count
+            trip["stops"].append(f"{move.to_station} ({count})")
+            trip["km"] = max(trip["km"], move.distance_km)
+            for reason in move.reason.split(" + "):
+                if reason not in trip["reasons"]:
+                    trip["reasons"].append(reason)
+            remaining -= count
+    return pd.DataFrame(
+        [
+            {
+                "trip": number,
+                "pickup": trip["pickup"],
+                "bikes": trip["bikes"],
+                "drop_offs": ", ".join(trip["stops"]),
+                "farthest_km": trip["km"],
+                "reason": " + ".join(trip["reasons"]),
+            }
+            for number, trip in enumerate(trips, start=1)
+        ],
+        columns=TRIP_COLUMNS,
+    )

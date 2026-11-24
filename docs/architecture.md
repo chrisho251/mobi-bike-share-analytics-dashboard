@@ -88,7 +88,7 @@ seconds. Query results are cached for 30 seconds (live data) to 10 minutes
 | Tab | Panels | Audience |
 |---|---|---|
 | Live Overview | station map by fill level; empty and full stations over 24 h | dispatcher |
-| Next-Hour Actions | suggested moves; stations at risk | dispatcher |
+| Next-Hour Actions | suggested van trips; stations at risk | dispatcher |
 | Forecast Accuracy | error per hour (7 days); error by area (24 h); training runs | data team |
 | Station Explorer | one station's bikes and forecasts (24 h) | both |
 | Demand Patterns | fill level by area and hour; activity in dry vs rainy hours | planning |
@@ -104,6 +104,8 @@ Suggested moves follow these rules, all on the corrected forecast and within
 - A station is full over 90 % full and is emptied toward 70 %. Bikes it still
   has to lose after refilling short stations go to the nearest stations under
   50 % full, up to 50 %.
+- Moves from the same station are grouped into van trips of at most 20 bikes
+  (`actions.VAN_CAPACITY`, an assumption to set to the real fleet's).
 
 The at-risk table lists the emptiest short stations first, then the fullest
 full stations.

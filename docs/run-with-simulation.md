@@ -97,7 +97,7 @@ source. Stop the server with `Ctrl+C`.
 | Tab | What to look at |
 |---|---|
 | Live Overview | Station map coloured by fill level; empty and full stations over 24 h. |
-| Next-Hour Actions | Suggested bike moves and the stations at risk in the next hour. |
+| Next-Hour Actions | Suggested van trips and the stations at risk in the next hour. |
 | Forecast Accuracy | Error of baseline, model and corrected forecasts per hour and per area; held-out error of each training run. |
 | Station Explorer | Pick a station: its bikes over 24 h with the forecasts made an hour earlier. |
 | Demand Patterns | Fill level by area and hour; activity in dry vs rainy hours. |
