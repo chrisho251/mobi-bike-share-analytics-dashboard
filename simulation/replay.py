@@ -93,12 +93,15 @@ def replay(frame: pd.DataFrame, times, retrain_every: timedelta):
 def save(forecasts: pd.DataFrame, runs: pd.DataFrame) -> None:
     """Replaces predictions_log and model_runs with the replay results.
 
+    The daily accuracy summary is rebuilt from them, as the pipeline would.
+
     Args:
         forecasts: First output of replay().
         runs: Second output of replay().
     """
-    from mobi import db, forecast
+    from mobi import db, forecast, summary
 
+    db.init_db()  # simulation files made before a table was added lack it
     records = []
     for version, group in forecasts.groupby("model_version"):
         rows = forecast.to_log_rows(group, version, None)
@@ -109,12 +112,14 @@ def save(forecasts: pd.DataFrame, runs: pd.DataFrame) -> None:
     with db.get_engine().begin() as conn:
         conn.execute(db.predictions_log.delete())
         conn.execute(db.model_runs.delete())
+        conn.execute(db.accuracy_daily.delete())
         conn.execute(db.predictions_log.insert(), records)
         if not runs.empty:
             conn.execute(
                 db.model_runs.insert(),
                 [{**r, "trained_at": pd.Timestamp(r["trained_at"]).to_pydatetime()} for r in runs.to_dict("records")],
             )
+    summary.summarise_days()
 
 
 def summarise(forecasts: pd.DataFrame) -> pd.DataFrame:

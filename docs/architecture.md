@@ -40,7 +40,12 @@ stop the next; the run is marked failed unless only weather failed.
    of a run stays flat as history grows.
 4. **Forecast and correct** (`forecast.predict_next_hour`): log three
    forecasts per station.
-5. **Prune** (`pipeline.prune_history`): delete snapshots older than 30 days
+5. **Summarise** (`summary.summarise_days`): write one row per finished
+   Vancouver day to `accuracy_daily` (forecasts scored, mean error of each
+   forecast, outcomes of the corrected forecast's alerts). A day counts as
+   finished 12 hours after midnight, once none of its forecasts can still be
+   scored. The Forecast Accuracy tab plots it as the long-term record.
+6. **Prune** (`pipeline.prune_history`): delete snapshots older than 30 days
    and forecasts older than 14 days, measured from the newest snapshot, so
    the database stays within Neon's free tier.
 
@@ -69,7 +74,7 @@ Two alternatives were evaluated on real data and rejected:
 
 ## 3. Storage
 
-Neon serverless Postgres 18, one database, six tables. All timestamps are
+Neon serverless Postgres 18, one database, seven tables. All timestamps are
 naive UTC; the dashboard converts to `America/Vancouver`.
 
 | Table | Key | Written by | Notes |
@@ -80,6 +85,7 @@ naive UTC; the dashboard converts to `America/Vancouver`.
 | `predictions_log` | `station_id`, `base_time` | forecast; `actual` filled by scoring | the evaluation record; kept 14 days |
 | `model_runs` | `model_version` | forecast | held-out error of model and baseline per training run |
 | `model_store` | `name` | forecast (overwrite) | the current model, pickled, with its scikit-learn version |
+| `accuracy_daily` | `day` | summary (insert only) | one row per Vancouver day; kept after the forecasts are deleted |
 
 The same schema runs on SQLite for tests and the simulation. When
 `DATABASE_URL` is not set, every component uses the simulation database

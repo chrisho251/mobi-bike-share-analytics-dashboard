@@ -129,10 +129,11 @@ accumulates.
 ```
 src/mobi/
   config.py      endpoints, constants, database selection
-  db.py          schema (6 tables), engine, upsert
+  db.py          schema (7 tables), engine, upsert
   ingest.py      GBFS and Open-Meteo collection
   features.py    feature building (lags, target, calendar, weather)
   forecast.py    training, forecasting, correction, scoring
+  summary.py     daily accuracy record, kept after forecasts are deleted
   pipeline.py    one collection, forecasting and pruning cycle (entry point)
   actions.py     rebalancing rules
   queries.py     read-only, cached dashboard queries

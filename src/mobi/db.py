@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -105,6 +106,28 @@ model_store = Table(
     # load it correctly, so a mismatch forces a retrain.
     Column("library_version", String, nullable=False),
     Column("model", LargeBinary, nullable=False),
+)
+
+# One row per Vancouver day of scored forecasts. Raw forecasts are deleted
+# after two weeks; this keeps the accuracy record for good, at one row a day.
+accuracy_daily = Table(
+    "accuracy_daily",
+    metadata,
+    Column("day", Date, primary_key=True),
+    Column("forecasts", Integer, nullable=False),
+    # Mean absolute error of each forecast, in bikes.
+    Column("mae_baseline", Float),
+    Column("mae_model", Float),
+    Column("mae_corrected", Float),
+    # At-risk alerts of the corrected forecast: how many were raised, how many
+    # came true, and how many stations really crossed the line.
+    Column("empty_alerts", Integer),
+    Column("empty_alerts_true", Integer),
+    Column("empty_events", Integer),
+    Column("full_alerts", Integer),
+    Column("full_alerts_true", Integer),
+    Column("full_events", Integer),
+    Column("created_at", DateTime),
 )
 
 _engine: Engine | None = None

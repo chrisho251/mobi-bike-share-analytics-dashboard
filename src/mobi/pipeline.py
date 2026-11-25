@@ -9,6 +9,7 @@ from mobi import config
 from mobi.db import delete_before, init_db, latest_fetch_time, predictions_log, station_status
 from mobi.forecast import TRAIN_WINDOW, fill_actuals, predict_next_hour
 from mobi.ingest import ingest_stations, ingest_status, ingest_weather
+from mobi.summary import summarise_days
 
 logger = logging.getLogger("pipeline")
 
@@ -65,7 +66,8 @@ def run_pipeline() -> bool:
     Weather is optional: if it fails, the failure is logged but the run is
     still considered successful, because the bike counts are the essential
     data. The forecast steps run after collection because they read what was
-    just stored, and old rows are pruned last.
+    just stored. Finished days are summarised before old rows are pruned, so
+    no forecast is deleted unsummarised.
 
     Returns:
         True if every step except weather succeeded, False otherwise.
@@ -79,6 +81,7 @@ def run_pipeline() -> bool:
     critical += [
         run_step("fill_actuals", fill_actuals),
         run_step("predict", predict_next_hour),
+        run_step("summarise", summarise_days),
         run_step("prune", prune_history),
     ]
     return all(critical)

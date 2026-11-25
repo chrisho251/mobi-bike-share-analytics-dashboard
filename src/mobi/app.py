@@ -19,7 +19,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from mobi import actions, config, features, queries
+from mobi import actions, config, features, queries, summary
 from mobi.ingest import utcnow
 
 REFRESH_SECONDS = 60
@@ -266,6 +266,33 @@ def training_chart() -> go.Figure | None:
         markers=True,
         color_discrete_map=SERIES_COLORS,
         labels={"trained_at": "Training run", "error": "Held-out error (bikes)"},
+    )
+    return _style(figure, 300)
+
+
+def daily_chart() -> go.Figure | None:
+    """Plots each forecast type's error per day since collection began.
+
+    Reads the daily summary, which is kept after the raw forecasts are
+    deleted, so this is the long-term record.
+
+    Returns:
+        A line chart, or None before the first full day is summarised.
+    """
+    daily = summary.load_daily()
+    if daily.empty:
+        return None
+    long = daily.rename(columns=lambda c: c.removeprefix("mae_")).melt(
+        id_vars="day", value_vars=list(SERIES_COLORS), var_name="forecast", value_name="error"
+    )
+    figure = px.line(
+        long,
+        x="day",
+        y="error",
+        color="forecast",
+        markers=True,
+        color_discrete_map=SERIES_COLORS,
+        labels={"day": "", "error": "Mean absolute error (bikes)"},
     )
     return _style(figure, 300)
 
@@ -554,6 +581,7 @@ def refresh_all() -> tuple:
         monitoring_cards(),
         completeness_chart(),
         stations_chart(),
+        daily_chart(),
     )
 
 
@@ -595,6 +623,7 @@ def build_app() -> gr.Blocks:
             acc_plot = gr.Plot(label="Error per hour, last 7 days")
             area_plot = gr.Plot(label="Error by area, last 24 h")
             training_plot = gr.Plot(label="Training runs: held-out error")
+            daily_plot = gr.Plot(label="Error per day, since collection began")
 
         with gr.Tab("Station Explorer"):
             picker = gr.Dropdown(choices=names, value=names[0] if names else None, label="Station")
@@ -619,6 +648,7 @@ def build_app() -> gr.Blocks:
             acc_headline, acc_plot, area_plot, training_plot,
             heatmap_plot, activity_plot,
             status_board, completeness_plot, stations_plot,
+            daily_plot,
         ]
         demo.load(refresh_all, outputs=outputs)
         timer.tick(refresh_all, outputs=outputs)
