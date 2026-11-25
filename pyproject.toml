@@ -27,5 +27,7 @@ packages = ["src/mobi"]
 
 [dependency-groups]
 dev = [
+    # The tests train the forecast model, so they need the ml extra.
+    "mobi-dashboard[ml]",
     "pytest>=9.2.0",
 ]

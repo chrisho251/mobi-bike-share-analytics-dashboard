@@ -19,7 +19,10 @@ Every component runs on a free tier.
 
 | Install | Contents | Used by |
 |---|---|---|
-| `uv sync` | pandas, requests, SQLAlchemy, psycopg, python-dotenv | ingestion only |
+| `uv sync --no-dev` | pandas, requests, SQLAlchemy, psycopg, python-dotenv | ingestion only |
+| `uv sync` | + pytest and scikit-learn (dev group) | tests (the tests workflow) |
 | `uv sync --extra ml` | + scikit-learn | pipeline with forecasting (GitHub Actions) |
 | `uv sync --extra app` | + Gradio, Plotly | dashboard |
-| `uv sync --all-extras` | everything, plus pytest (dev group) | development |
+| `uv sync --all-extras` | everything | development |
+
+`uv sync` and `uv run` install the dev group unless `--no-dev` is given.
