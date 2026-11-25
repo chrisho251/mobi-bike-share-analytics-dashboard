@@ -1,0 +1,15 @@
+# Render Blueprint: the dashboard as a free web service.
+# The dashboard only reads the database, so it installs the pinned dashboard
+# requirements, which leave out scikit-learn (only the pipeline needs it).
+services:
+  - type: web
+    name: mobi-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-dashboard.txt
+    startCommand: python -m mobi.app
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: DATABASE_URL
+        sync: false # entered in the Render dashboard, never committed

@@ -80,7 +80,7 @@ All services below have free tiers.
 | Database | [Neon](https://neon.tech) Postgres | Create a project and copy the pooled connection string. |
 | Pipeline | GitHub Actions (`.github/workflows/pipeline.yml`) | Add the repository secret `DATABASE_URL`. |
 | Schedule | [cron-job.org](https://cron-job.org) | Every 10 minutes, `POST https://api.github.com/repos/<owner>/<repo>/actions/workflows/pipeline.yml/dispatches` with body `{"ref":"main"}` and headers `Authorization: Bearer <token>` and `Accept: application/vnd.github+json`. Use a fine-grained token scoped to this repository with *Actions: read and write* only. |
-| Dashboard | [Render](https://render.com) web service | Build command `pip install -r requirements.txt`, start command `python -m mobi.app`, environment variable `DATABASE_URL` (a read-only database role is recommended). |
+| Dashboard | [Render](https://render.com) web service | Build command `pip install -r requirements-dashboard.txt`, start command `python -m mobi.app`, environment variable `DATABASE_URL` (a read-only database role is recommended). |
 
 The workflow also has its own cron schedule as a fallback. GitHub does not
 guarantee scheduled runs, and on this repository they arrived hours late,
@@ -153,7 +153,10 @@ pip requirements:
 ```bash
 uv lock
 uv export --format requirements-txt --all-extras --no-dev --no-hashes -o requirements.txt
+uv export --format requirements-txt --extra app --no-dev --no-hashes -o requirements-dashboard.txt
 ```
+
+`requirements-dashboard.txt` is the lean set the hosted dashboard installs.
 
 [docs/tech-stack.md](docs/tech-stack.md) lists the libraries and why each was
 chosen.
