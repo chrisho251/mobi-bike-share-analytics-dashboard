@@ -12,7 +12,7 @@ Every component runs on a free tier.
 | Scheduling | GitHub Actions + cron-job.org | Actions runs the pipeline on a clean runner; cron-job.org triggers it reliably every 10 minutes. |
 | Dashboard | Gradio 6, Plotly | Python-only web UI with timers and tabs; interactive charts and an OpenStreetMap station map. |
 | Hosting | Render (web service) | Public URL for the dashboard. |
-| Testing | pytest | Unit and end-to-end tests on throwaway SQLite databases. |
+| Testing | pytest, GitHub Actions | Unit and end-to-end tests on throwaway SQLite databases; run on every pull request and push to main. |
 | Data sources | Mobi GBFS 2.3, Open-Meteo | Public, no key required. Open-Meteo data is CC BY 4.0. |
 
 ## Dependency groups

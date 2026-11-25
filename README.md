@@ -1,6 +1,7 @@
 # Mobi bike-share rebalancing dashboard
 
 [![pipeline](https://github.com/chrisho251/mobi-bike-share-analytics-dashboard/actions/workflows/pipeline.yml/badge.svg)](https://github.com/chrisho251/mobi-bike-share-analytics-dashboard/actions/workflows/pipeline.yml)
+[![tests](https://github.com/chrisho251/mobi-bike-share-analytics-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/chrisho251/mobi-bike-share-analytics-dashboard/actions/workflows/tests.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 
 Next-hour bike availability forecasts and rebalancing suggestions for
