@@ -61,7 +61,10 @@ def replay(frame: pd.DataFrame, times, retrain_every: timedelta):
 
     for time in times:
         if last_train is None or time - last_train >= retrain_every:
-            known = labelled[labelled["snapshot_time"] + HORIZON <= time]
+            known = labelled[
+                (labelled["snapshot_time"] + HORIZON <= time)
+                & (labelled["snapshot_time"] >= time - forecast.TRAIN_WINDOW)
+            ]
             model, metrics = forecast.train_model(known)
             last_train = time
             if model is not None:

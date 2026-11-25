@@ -19,6 +19,8 @@ HORIZON = timedelta(minutes=60)
 LAGS_MINUTES = (30, 60)
 # A snapshot counts as "the value at time T" if it lies within this distance.
 MATCH_TOLERANCE = timedelta(minutes=5)
+# History needed to build the features of the newest snapshot (its lags).
+LOOKBACK = timedelta(minutes=max(LAGS_MINUTES)) + MATCH_TOLERANCE
 # Display and calendar features use the dispatcher's local time.
 LOCAL_TZ = "America/Vancouver"
 AREA_CODES = {name: code for code, name in enumerate(config.AREA_ANCHORS)}

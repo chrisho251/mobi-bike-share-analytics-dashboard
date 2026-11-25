@@ -31,12 +31,18 @@ stop the next; the run is marked failed unless only weather failed.
    keyed by station and feed timestamp, so repeated runs never duplicate rows.
 2. **Score** (`forecast.fill_actuals`): for forecasts whose target time has
    passed, store the observed bike count (nearest snapshot within 5 minutes).
-3. **Train** (`features.py`, `forecast.train_model`): build one feature row
-   per station snapshot (current bikes, 30/60-minute lags, local hour and
-   weekday, weather now and in one hour, location, area) and fit a
-   gradient-boosted regressor of the change in bikes over the next hour.
+3. **Train** (`features.py`, `forecast.train_model`), once an hour: build one
+   feature row per station snapshot of the last 28 days (current bikes,
+   30/60-minute lags, local hour and weekday, weather now and in one hour,
+   location, area) and fit a gradient-boosted regressor of the change in bikes
+   over the next hour. The fitted model is stored in `model_store`; the runs
+   in between reuse it and read only the last hour of snapshots, so the cost
+   of a run stays flat as history grows.
 4. **Forecast and correct** (`forecast.predict_next_hour`): log three
    forecasts per station.
+5. **Prune** (`pipeline.prune_history`): delete snapshots older than 30 days
+   and forecasts older than 14 days, measured from the newest snapshot, so
+   the database stays within Neon's free tier.
 
 ### Forecasts and the correction step
 
@@ -63,16 +69,17 @@ Two alternatives were evaluated on real data and rejected:
 
 ## 3. Storage
 
-Neon serverless Postgres 18, one database, five tables. All timestamps are
+Neon serverless Postgres 18, one database, six tables. All timestamps are
 naive UTC; the dashboard converts to `America/Vancouver`.
 
 | Table | Key | Written by | Notes |
 |---|---|---|---|
 | `stations` | `station_id` | ingest (overwrite) | name, lat, lon, capacity, area |
-| `station_status` | `station_id`, `snapshot_time` | ingest (insert only) | immutable history |
+| `station_status` | `station_id`, `snapshot_time` | ingest (insert only) | history; kept 30 days |
 | `weather_hourly` | `time` | ingest (overwrite) | forecasts are replaced by observations |
-| `predictions_log` | `station_id`, `base_time` | forecast; `actual` filled by scoring | the evaluation record |
+| `predictions_log` | `station_id`, `base_time` | forecast; `actual` filled by scoring | the evaluation record; kept 14 days |
 | `model_runs` | `model_version` | forecast | held-out error of model and baseline per training run |
+| `model_store` | `name` | forecast (overwrite) | the current model, pickled, with its scikit-learn version |
 
 The same schema runs on SQLite for tests and the simulation. When
 `DATABASE_URL` is not set, every component uses the simulation database

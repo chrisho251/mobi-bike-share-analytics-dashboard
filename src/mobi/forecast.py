@@ -4,8 +4,9 @@ Each pipeline run does two things:
 
 1. ``fill_actuals`` looks up what really happened for forecasts whose target
    time has passed, so every forecast can be scored.
-2. ``predict_next_hour`` retrains the model on all history, forecasts the next
-   hour for every station and stores three competing forecasts:
+2. ``predict_next_hour`` retrains the model on the last TRAIN_WINDOW of history
+   once per RETRAIN_EVERY (reusing the stored model in between), forecasts the
+   next hour for every station and stores three competing forecasts:
 
    * baseline:  the bike count stays as it is now (persistence);
    * model:     gradient-boosted trees predicting the change in bike count;
@@ -21,7 +22,8 @@ recent error is mostly noise.
 """
 
 import logging
-from datetime import timedelta
+import pickle
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -31,6 +33,7 @@ from mobi import features
 from mobi.db import (
     get_engine,
     model_runs,
+    model_store,
     predictions_log,
     station_status,
     upsert,
@@ -54,6 +57,12 @@ SELECTION_WINDOW = timedelta(hours=24)
 SELECTION_MIN_FORECASTS = 6
 # Forecasts older than this are not scanned for actuals any more.
 ACTUAL_LOOKBACK = timedelta(hours=12)
+# The model learns from this much recent history only. Four weeks hold four of
+# each weekday, and the cost of a training run stops growing with the history.
+TRAIN_WINDOW = timedelta(days=28)
+# How often the model is retrained. The runs in between reuse the stored model
+# and read only the last hour of snapshots.
+RETRAIN_EVERY = timedelta(hours=1)
 
 
 def _latest_snapshot_time():
@@ -320,8 +329,74 @@ def _recent_scored(latest) -> pd.DataFrame:
     )
 
 
+def _library_version() -> str:
+    """Returns the installed scikit-learn version."""
+    import sklearn
+
+    return sklearn.__version__
+
+
+def save_model(model, version: str, trained_at: datetime) -> None:
+    """Stores a trained model as the current one, replacing the previous.
+
+    Args:
+        model: A model from train_model (not None).
+        version: Its model_version label.
+        trained_at: When it was trained (naive UTC).
+    """
+    upsert(
+        model_store,
+        [
+            {
+                "name": "current",
+                "model_version": version,
+                "trained_at": trained_at,
+                "library_version": _library_version(),
+                "model": pickle.dumps(model),
+            }
+        ],
+        ["name"],
+        update_cols=["model_version", "trained_at", "library_version", "model"],
+    )
+
+
+def load_model():
+    """Reads the current model written by save_model.
+
+    The pickle was written by this pipeline into its own database, so it is
+    trusted.
+
+    Returns:
+        A tuple (model, version, trained_at), or None if no model is stored or
+        it was saved by another scikit-learn version.
+    """
+    with get_engine().connect() as conn:
+        row = conn.execute(select(model_store).where(model_store.c.name == "current")).first()
+    if row is None:
+        return None
+    if row.library_version != _library_version():
+        logger.info(
+            "stored model %s needs scikit-learn %s; retraining",
+            row.model_version, row.library_version,
+        )
+        return None
+    return pickle.loads(row.model), row.model_version, row.trained_at
+
+
+def _build_features(since) -> pd.DataFrame:
+    """Builds feature rows from the snapshots at or after since."""
+    return features.build_features(
+        features.load_status(since=since), features.load_stations(), features.load_weather()
+    )
+
+
 def predict_next_hour() -> int:
-    """Retrains the model and logs the 60-minute forecast for every station.
+    """Logs the 60-minute forecast for every station, retraining when due.
+
+    The model is retrained on the last TRAIN_WINDOW of snapshots when no model
+    is stored or the stored one is at least RETRAIN_EVERY old. Otherwise the
+    stored model is reused and only the snapshots needed for the newest
+    features are read.
 
     Returns:
         The number of forecast rows written (0 if this snapshot was already
@@ -339,18 +414,22 @@ def predict_next_hour() -> int:
         return 0
     now = utcnow()
 
-    frame = features.build_features(
-        features.load_status(), features.load_stations(), features.load_weather()
-    )
-    model, metrics = train_model(frame[frame["bikes_target"].notna()])
-    version = f"hgb-{now:%Y%m%d%H%M}" if model is not None else "baseline-only"
-    if model is not None:
-        logger.info("trained %s: %s", version, metrics)
-        upsert(
-            model_runs,
-            [{"model_version": version, "trained_at": now, **metrics}],
-            ["model_version"],
-        )
+    stored = load_model()
+    if stored is not None and now - stored[2] < RETRAIN_EVERY:
+        model, version, _ = stored
+        frame = _build_features(since=latest - features.LOOKBACK)
+    else:
+        frame = _build_features(since=latest - TRAIN_WINDOW)
+        model, metrics = train_model(frame[frame["bikes_target"].notna()])
+        version = f"hgb-{now:%Y%m%d%H%M}" if model is not None else "baseline-only"
+        if model is not None:
+            logger.info("trained %s: %s", version, metrics)
+            upsert(
+                model_runs,
+                [{"model_version": version, "trained_at": now, **metrics}],
+                ["model_version"],
+            )
+            save_model(model, version, now)
 
     current = frame[frame["snapshot_time"] == pd.Timestamp(latest)]
     if current.empty:

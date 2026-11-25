@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     MetaData,
     String,
     Table,
@@ -92,6 +93,20 @@ model_runs = Table(
     Column("mae_model", Float),
 )
 
+# The most recently trained model, so the runs between retrains can reuse it
+# instead of reading the whole training window again. One row, name "current".
+model_store = Table(
+    "model_store",
+    metadata,
+    Column("name", String, primary_key=True),
+    Column("model_version", String, nullable=False),
+    Column("trained_at", DateTime, nullable=False),
+    # scikit-learn version that pickled the model; another version may not
+    # load it correctly, so a mismatch forces a retrain.
+    Column("library_version", String, nullable=False),
+    Column("model", LargeBinary, nullable=False),
+)
+
 _engine: Engine | None = None
 def get_engine() -> Engine:
     """Returns the shared SQLAlchemy engine, creating it on first use.
@@ -144,6 +159,21 @@ def upsert(
     with engine.begin() as conn:
         written = conn.execute(stmt).fetchall()
     return len(written)
+
+def delete_before(table: Table, column: str, cutoff: datetime) -> int:
+    """Deletes the rows whose timestamp column is older than a cutoff.
+
+    Args:
+        table: The table to delete from.
+        column: Name of an indexed DateTime column.
+        cutoff: Rows with a value strictly before this naive UTC time are
+            deleted.
+
+    Returns:
+        The number of rows deleted.
+    """
+    with get_engine().begin() as conn:
+        return conn.execute(table.delete().where(table.c[column] < cutoff)).rowcount
 
 def init_db() -> None:
     """Creates any missing tables. Existing tables are left untouched."""
