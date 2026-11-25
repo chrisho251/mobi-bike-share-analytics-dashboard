@@ -11,6 +11,7 @@ load_dotenv(".env.local")
 GBFS_BASE_URL = "https://gbfs.kappa.fifteen.eu/gbfs/2.3/mobi/en"
 STATION_STATUS_URL = f"{GBFS_BASE_URL}/station_status.json"
 STATION_INFO_URL = f"{GBFS_BASE_URL}/station_information.json"
+VEHICLE_TYPES_URL = f"{GBFS_BASE_URL}/vehicle_types.json"
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 
 # Vancouver lat/lon

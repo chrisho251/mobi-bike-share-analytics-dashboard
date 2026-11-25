@@ -18,7 +18,9 @@ from sqlalchemy import (
     Table,
     create_engine,
     func,
+    inspect,
     select,
+    text,
 )
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -48,6 +50,9 @@ station_status = Table(
     Column("is_renting", Boolean),
     Column("is_returning", Boolean),
     Column("fetched_at", DateTime),
+    # Electric-assist bikes among num_bikes. NULL in rows collected before it
+    # was added, or when the vehicle types could not be read.
+    Column("num_ebikes", Integer),
     Index("ix_station_status_time", "snapshot_time"),
 )
 
@@ -146,8 +151,41 @@ def upsert(
     return len(written)
 
 def init_db() -> None:
-    """Creates any missing tables. Existing tables are left untouched."""
+    """Creates any missing tables and columns. Existing rows are left untouched."""
     metadata.create_all(get_engine())
+    _add_missing_columns(get_engine())
+
+def _add_missing_columns(engine: Engine) -> list[str]:
+    """Adds the columns defined here that an existing table does not have yet.
+
+    create_all only creates missing tables, so a column added to the schema
+    later would never reach a database created earlier. Such columns must be
+    nullable: existing rows get NULL.
+
+    Args:
+        engine: The database to update.
+
+    Returns:
+        The added columns as "table.column".
+    """
+    inspector = inspect(engine)
+    existing = set(inspector.get_table_names())
+    quote = engine.dialect.identifier_preparer.quote
+    added = []
+    with engine.begin() as conn:
+        for table in metadata.sorted_tables:
+            if table.name not in existing:
+                continue
+            present = {column["name"] for column in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in present:
+                    continue
+                kind = column.type.compile(dialect=engine.dialect)
+                conn.execute(
+                    text(f"ALTER TABLE {quote(table.name)} ADD COLUMN {quote(column.name)} {kind}")
+                )
+                added.append(f"{table.name}.{column.name}")
+    return added
 
 def latest_fetch_time(table: Table, column: str = "fetched_at") -> datetime | None:
     """Returns the most recent value of a timestamp column in a table.

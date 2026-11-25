@@ -46,6 +46,8 @@ Six tabs, refreshed every minute:
 | Demand Patterns | planning | fill level by area and hour of day; activity in dry and rainy hours |
 | Monitoring | operations | status tiles (data age, completeness, stations, weather, model, scoring); data collected per day; stations reporting |
 
+The Live Overview also counts e-bikes.
+
 ## Quick start
 
 ```bash

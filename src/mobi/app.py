@@ -1,6 +1,6 @@
 """Gradio dashboard for Mobi dispatchers and the team running the pipeline.
 
-Eleven panels in six tabs:
+Eleven panels in six tabs (the station map also counts e-bikes):
 
 * Live Overview     - station map; empty/full stations over the last 24 h.
 * Next-Hour Actions - suggested bike moves; stations at risk.
@@ -80,14 +80,21 @@ def live_kpis(frame: pd.DataFrame) -> str:
         frame: Output of queries.overview().
 
     Returns:
-        Data age, bikes available and empty/full station counts.
+        Data age, bikes and e-bikes available and empty/full station counts.
     """
     if frame.empty:
         return EMPTY_MESSAGE
     latest = frame["snapshot_time"].iloc[0]
+    ebikes = ""
+    if "num_ebikes" in frame and frame["num_ebikes"].notna().any():
+        counted = frame["num_ebikes"].dropna()
+        ebikes = (
+            f" (**{int(counted.sum())}** e-bikes; "
+            f"**{int((counted == 0).sum())}** stations have none)"
+        )
     return (
         f"**Data from {_local(latest):%a %H:%M}** ({_minutes_ago(latest)} min ago) | "
-        f"{len(frame)} stations | **{int(frame['num_bikes'].sum())}** bikes available | "
+        f"{len(frame)} stations | **{int(frame['num_bikes'].sum())}** bikes available{ebikes} | "
         f"**{int((frame['num_bikes'] == 0).sum())}** empty | "
         f"**{int((frame['num_docks'] == 0).sum())}** full"
     )
@@ -105,6 +112,9 @@ def station_map(frame: pd.DataFrame) -> go.Figure | None:
     if frame.empty:
         return None
     frame = frame.assign(fill_percent=(frame["fill_ratio"] * 100).round())
+    hover = {"num_bikes": True, "num_docks": True, "lat": False, "lon": False}
+    if "num_ebikes" in frame and frame["num_ebikes"].notna().any():
+        hover = {"num_bikes": True, "num_ebikes": True, "num_docks": True, "lat": False, "lon": False}
     figure = px.scatter_map(
         frame,
         lat="lat",
@@ -113,8 +123,11 @@ def station_map(frame: pd.DataFrame) -> go.Figure | None:
         range_color=(0, 100),
         color_continuous_scale="Viridis",
         hover_name="name",
-        hover_data={"num_bikes": True, "num_docks": True, "lat": False, "lon": False},
-        labels={"fill_percent": "Full (%)", "num_bikes": "Bikes", "num_docks": "Free docks"},
+        hover_data=hover,
+        labels={
+            "fill_percent": "Full (%)", "num_bikes": "Bikes", "num_ebikes": "of which e-bikes",
+            "num_docks": "Free docks",
+        },
         center={"lat": config.VANCOUVER_LAT, "lon": config.VANCOUVER_LON},
         zoom=11.6,
         height=520,

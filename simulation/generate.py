@@ -23,6 +23,8 @@ DEFAULT_DB = SIM_DIR / "data" / "mobi_sim.db"
 STATIONS_CSV = SIM_DIR / "stations.csv"
 STEP = timedelta(minutes=10)
 LOCAL_TZ = ZoneInfo("America/Vancouver")
+# Share of docked bikes that are e-bikes (16 % in the live feed, November 2026).
+EBIKE_SHARE = 0.16
 
 # Share of each area's trips that start (-1) or end (+1) there, by time of day.
 # Residential areas empty in the morning and refill in the evening; downtown
@@ -233,6 +235,10 @@ def main() -> None:
     stations = pd.read_csv(STATIONS_CSV, dtype={"station_id": str})
     weather = simulate_weather(hours, rng)
     status = simulate_status(stations, times, weather, rng)
+    # A separate generator, so adding e-bikes left the simulated history unchanged.
+    status["num_ebikes"] = np.random.default_rng(args.seed + 1).binomial(
+        status["num_bikes"], EBIKE_SHARE
+    )
     write_tables(args.db, stations, status, weather)
     print(
         f"Wrote {len(status):,} snapshots rows for {len(stations)} stations, "

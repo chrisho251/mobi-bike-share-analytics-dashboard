@@ -10,7 +10,7 @@ from datetime import timedelta
 from functools import lru_cache, wraps
 
 import pandas as pd
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, inspect, select
 
 from mobi import features
 from mobi.db import get_engine, model_runs, predictions_log, station_status, stations, weather_hourly
@@ -71,14 +71,25 @@ def _since(hours: float):
     return None if latest is None else latest - timedelta(hours=hours)
 
 
+def _has_ebike_counts() -> bool:
+    """Tells whether station_status has the num_ebikes column yet.
+
+    The dashboard only reads, so it cannot add the column itself: a database
+    the pipeline has not updated yet (or an old simulation file) lacks it.
+    """
+    columns = inspect(get_engine()).get_columns(station_status.name)
+    return any(column["name"] == "num_ebikes" for column in columns)
+
+
 @ttl_cache(30)
 def overview() -> pd.DataFrame:
     """Returns the latest state and forecast of every station.
 
     Returns:
-        One row per station with metadata, num_bikes, num_docks, fill_ratio,
-        snapshot_time and the newest forecasts (pred_baseline, pred_model,
-        pred_corrected, target_time). Empty if nothing is stored.
+        One row per station with metadata, num_bikes, num_docks, num_ebikes
+        (when collected), fill_ratio, snapshot_time and the newest forecasts
+        (pred_baseline, pred_model, pred_corrected, target_time). Empty if
+        nothing is stored.
     """
     latest = latest_snapshot_time()
     if latest is None:
@@ -86,10 +97,11 @@ def overview() -> pd.DataFrame:
     with get_engine().connect() as conn:
         base_time = conn.execute(select(func.max(predictions_log.c.base_time))).scalar()
 
-    status = features.read_query(
-        select(station_status.c.station_id, station_status.c.num_bikes, station_status.c.num_docks)
-        .where(station_status.c.snapshot_time == latest)
-    )
+    s = station_status.c
+    columns = [s.station_id, s.num_bikes, s.num_docks]
+    if _has_ebike_counts():
+        columns.append(s.num_ebikes)
+    status = features.read_query(select(*columns).where(s.snapshot_time == latest))
     frame = features.load_stations().merge(status, on="station_id", how="inner")
     forecasts = features.read_query(
         select(

@@ -149,6 +149,58 @@ def ingest_stations() -> int:
         update_cols=["name", "lat", "lon", "capacity", "area", "updated_at"],
     )
 
+def electric_type_ids() -> set[str] | None:
+    """Reads which vehicle types in the feed are e-bikes.
+
+    E-bike counts are a bonus, so a failure here must not cost the snapshot.
+
+    Returns:
+        The ids of every vehicle type that is not human-powered, or None if
+        the vehicle types could not be downloaded.
+    """
+    try:
+        data = fetch_json(config.VEHICLE_TYPES_URL)
+    except requests.RequestException:
+        return None
+    return {
+        vehicle["vehicle_type_id"]
+        for vehicle in data["data"]["vehicle_types"]
+        if vehicle.get("propulsion_type", "human") != "human"
+    }
+
+
+def status_row(
+    station: dict[str, Any], snapshot_time: datetime, fetched_at: datetime, electric: set[str] | None
+) -> dict[str, Any]:
+    """Converts one station of the station_status feed into a table row.
+
+    Args:
+        station: The station's entry in the feed.
+        snapshot_time: When the feed was generated (naive UTC).
+        fetched_at: When it was downloaded (naive UTC).
+        electric: Output of electric_type_ids().
+
+    Returns:
+        A row for the station_status table. num_ebikes is None when the feed
+        or the vehicle types do not provide it.
+    """
+    types = station.get("vehicle_types_available")
+    return {
+        "station_id": station["station_id"],
+        "snapshot_time": snapshot_time,
+        "num_bikes": station["num_bikes_available"],
+        "num_docks": station["num_docks_available"],
+        "is_renting": station["is_renting"],
+        "is_returning": station["is_returning"],
+        "fetched_at": fetched_at,
+        "num_ebikes": (
+            None
+            if electric is None or types is None
+            else sum(t["count"] for t in types if t["vehicle_type_id"] in electric)
+        ),
+    }
+
+
 def ingest_status() -> int:
     """Downloads the live bike and dock counts and stores one snapshot.
 
@@ -163,16 +215,9 @@ def ingest_status() -> int:
         data["last_updated"], tz=timezone.utc
     ).replace(tzinfo=None, second=0, microsecond=0)
     now = utcnow()
+    electric = electric_type_ids()
     rows = [
-        {
-            "station_id": s["station_id"],
-            "snapshot_time": snapshot_time,
-            "num_bikes": s["num_bikes_available"],
-            "num_docks": s["num_docks_available"],
-            "is_renting": s["is_renting"],
-            "is_returning": s["is_returning"],
-            "fetched_at": now,
-        }
+        status_row(s, snapshot_time, now, electric)
         for s in data["data"]["stations"]
         if s["is_installed"]
     ]

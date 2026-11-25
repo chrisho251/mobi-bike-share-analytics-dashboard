@@ -10,7 +10,7 @@ It has four layers, each a single responsibility.
 
 | Source | Content | Cadence |
 |---|---|---|
-| Mobi GBFS 2.3 feed (`gbfs.kappa.fifteen.eu`) | `station_status`: bikes and free docks per station; `station_information`: name, location, capacity | status every 10 min; station metadata hourly |
+| Mobi GBFS 2.3 feed (`gbfs.kappa.fifteen.eu`) | `station_status`: bikes (and how many are e-bikes) and free docks per station; `vehicle_types`: which bike types are electric; `station_information`: name, location, capacity | status every 10 min; station metadata hourly |
 | Open-Meteo forecast API | Hourly temperature, precipitation and wind for downtown Vancouver, one day back and two days ahead | hourly |
 
 Weather and station metadata change slowly, so they are fetched at most once
@@ -83,7 +83,9 @@ pipeline refuses to write live snapshots into the simulation database.
 
 A Gradio app (`mobi.app`) reads the database only and refreshes every 60
 seconds. Query results are cached for 30 seconds (live data) to 10 minutes
-(seven-day analyses). Eleven panels in six tabs serve three audiences:
+(seven-day analyses). Eleven panels in six tabs serve three audiences. The
+Live Overview also counts e-bikes (`num_ebikes`, NULL in rows collected before
+it was added):
 
 | Tab | Panels | Audience |
 |---|---|---|
