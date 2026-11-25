@@ -1,7 +1,8 @@
-"""Tests for e-bike collection and hours empty or full."""
+"""Tests for e-bike collection, hours empty or full, and alert outcomes."""
 
 from datetime import timedelta
 
+import pandas as pd
 import pytest
 from conftest import START, station_rows
 from sqlalchemy import create_engine, inspect, select, text
@@ -97,3 +98,24 @@ def test_service_hours_measure_time_empty_and_full(sqlite_db):
     assert service.index.tolist() == ["Station 1", "Station 0", "Station 2"]  # worst first
     assert service.loc["Station 0", ["empty_hours", "full_hours"]].tolist() == [6.0, 0.0]
     assert service.loc["Station 1", ["empty_hours", "full_hours"]].tolist() == [0.0, 12.0]
+
+
+def test_alerts_are_scored_against_what_happened():
+    # Capacity 20: under 3 bikes is "empty soon", over 18 is "full soon".
+    scored = pd.DataFrame(
+        {
+            "capacity": 20,
+            "actual": [0, 10, 1, 19],
+            "pred_corrected": [1, 1, 10, 19.5],
+            "pred_baseline": [10, 10, 10, 19.5],
+        }
+    )
+
+    outcomes = queries.score_alerts(scored).set_index(["alert", "forecast"])
+
+    empty = outcomes.loc[("Empty soon", "corrected")]
+    assert (empty["alerts"], empty["came_true_pct"], empty["events"], empty["caught_pct"]) == (2, 50, 2, 50)
+    assert outcomes.loc[("Empty soon", "baseline"), "alerts"] == 0
+    assert pd.isna(outcomes.loc[("Empty soon", "baseline"), "came_true_pct"])
+    full = outcomes.loc[("Full soon", "corrected")]
+    assert (full["came_true_pct"], full["caught_pct"]) == (100, 100)

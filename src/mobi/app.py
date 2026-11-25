@@ -1,6 +1,7 @@
 """Gradio dashboard for Mobi dispatchers and the team running the pipeline.
 
-Twelve panels in six tabs (the station map also counts e-bikes):
+Thirteen panels in six tabs (the station map also counts e-bikes, and Forecast
+Accuracy has an alert outcomes table):
 
 * Live Overview     - station map; empty/full stations over the last 24 h.
 * Next-Hour Actions - suggested bike moves; stations at risk.
@@ -234,6 +235,33 @@ def accuracy_chart(hourly: pd.DataFrame) -> go.Figure | None:
         labels={"hour": "", "error": "Mean absolute error (bikes)"},
     )
     return _style(figure)
+
+
+def _percent(value: float) -> str:
+    """Formats a percentage for a table cell, with a dash when undefined."""
+    return "–" if pd.isna(value) else f"{value:.0f} %"
+
+
+def alert_table() -> pd.DataFrame:
+    """Shows whether the at-risk alerts of the last 7 days came true.
+
+    Returns:
+        One row per alert type and forecast, ready to display. Empty before
+        any forecast is scored.
+    """
+    outcomes = queries.alert_outcomes()
+    if outcomes.empty:
+        return pd.DataFrame()
+    return pd.DataFrame(
+        {
+            "Alert": outcomes["alert"],
+            "Forecast": outcomes["forecast"],
+            "Alerts raised": outcomes["alerts"].map("{:,}".format),
+            "Came true": outcomes["came_true_pct"].map(_percent),
+            "Stations that crossed": outcomes["events"].map("{:,}".format),
+            "Caught in advance": outcomes["caught_pct"].map(_percent),
+        }
+    )
 
 
 def area_error_chart() -> go.Figure | None:
@@ -613,6 +641,7 @@ def refresh_all() -> tuple:
         risks,
         accuracy_headline(hourly),
         accuracy_chart(hourly),
+        alert_table(),
         area_error_chart(),
         training_chart(),
         service_headline(service),
@@ -661,6 +690,14 @@ def build_app() -> gr.Blocks:
             )
             acc_headline = gr.Markdown()
             acc_plot = gr.Plot(label="Error per hour, last 7 days")
+            gr.Markdown(
+                "**Did the alerts come true?** An alert is a station the forecast puts under "
+                "15 % full (empty soon) or over 90 % full (full soon) in an hour. *Came true*: "
+                "the station really was past that line an hour later. *Caught in advance*: "
+                "of the stations that crossed it, the share that were flagged. The "
+                "baseline flags whatever is past the line right now."
+            )
+            alerts_table = gr.Dataframe(label="Alert outcomes, last 7 days", interactive=False)
             area_plot = gr.Plot(label="Error by area, last 24 h")
             training_plot = gr.Plot(label="Training runs: held-out error")
 
@@ -686,7 +723,7 @@ def build_app() -> gr.Blocks:
         outputs = [
             kpis, map_plot, empty_full_plot,
             actions_headline, moves_table, risk_table,
-            acc_headline, acc_plot, area_plot, training_plot,
+            acc_headline, acc_plot, alerts_table, area_plot, training_plot,
             service_text, service_plot, heatmap_plot, activity_plot,
             status_board, completeness_plot, stations_plot,
         ]

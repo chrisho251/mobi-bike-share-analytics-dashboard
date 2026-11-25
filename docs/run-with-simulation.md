@@ -103,7 +103,8 @@ source. Stop the server with `Ctrl+C`.
 | Demand Patterns | Hours per day each station was empty or full; fill level by area and hour; activity in dry vs rainy hours. |
 | Monitoring | Status board (green / amber / red tiles), data collected per day, stations reporting. |
 
-The Live Overview also counts e-bikes.
+The Live Overview also counts e-bikes, and the Forecast Accuracy tab checks
+whether the at-risk alerts came true.
 
 The simulation stops at the moment it was generated, so "minutes ago" keeps
 growing and the Monitoring tab turns the "Latest data" tile red: expected, not an error.

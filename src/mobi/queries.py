@@ -12,7 +12,7 @@ from functools import lru_cache, wraps
 import pandas as pd
 from sqlalchemy import case, func, inspect, select
 
-from mobi import features
+from mobi import actions, features
 from mobi.db import get_engine, model_runs, predictions_log, station_status, stations, weather_hourly
 
 LOCAL_TZ = features.LOCAL_TZ
@@ -199,6 +199,68 @@ def accuracy_by_area(hours: int = 24) -> pd.DataFrame:
         return pd.DataFrame()
     scored = scored.merge(features.load_stations()[["station_id", "area"]], on="station_id")
     return scored.groupby("area")[["baseline", "model", "corrected"]].mean().reset_index()
+
+
+ALERTS = {
+    "Empty soon": lambda fill: fill < actions.SHORT_FILL,
+    "Full soon": lambda fill: fill > actions.FULL_FILL,
+}
+
+
+def score_alerts(scored: pd.DataFrame) -> pd.DataFrame:
+    """Checks whether the at-risk alerts came true.
+
+    An alert is raised when a forecast's fill crosses the at-risk threshold
+    of the Next-Hour Actions tab; it came true when the observed fill an hour
+    later crossed it too. The baseline's alerts (flag what is at risk right
+    now) show what the forecast adds.
+
+    Args:
+        scored: Scored forecasts with actual, pred_corrected, pred_baseline and
+            capacity.
+
+    Returns:
+        One row per alert and forecast with alerts (raised), came_true_pct
+        (share of alerts that came true), events (stations that did cross the
+        threshold) and caught_pct (share of those that were flagged).
+        Percentages are NaN when there is nothing to divide by.
+    """
+    scored = scored[scored["capacity"] > 0]
+    actual_fill = scored["actual"] / scored["capacity"]
+    rows = []
+    for alert, at_risk in ALERTS.items():
+        happened = at_risk(actual_fill)
+        for forecast in ("corrected", "baseline"):
+            raised = at_risk(scored[f"pred_{forecast}"] / scored["capacity"])
+            hits = int((raised & happened).sum())
+            rows.append(
+                {
+                    "alert": alert,
+                    "forecast": forecast,
+                    "alerts": int(raised.sum()),
+                    "came_true_pct": hits / raised.sum() * 100 if raised.any() else float("nan"),
+                    "events": int(happened.sum()),
+                    "caught_pct": hits / happened.sum() * 100 if happened.any() else float("nan"),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+@ttl_cache(300)
+def alert_outcomes(hours: int = 24 * 7) -> pd.DataFrame:
+    """Scores the at-risk alerts of the last `hours` against what happened.
+
+    Args:
+        hours: How far back to look, by forecast target time.
+
+    Returns:
+        The output of score_alerts. Empty before any scoring.
+    """
+    scored = _scored_forecasts(hours)
+    if scored.empty:
+        return pd.DataFrame()
+    scored = scored.merge(features.load_stations()[["station_id", "capacity"]], on="station_id")
+    return score_alerts(scored)
 
 
 @ttl_cache(600)

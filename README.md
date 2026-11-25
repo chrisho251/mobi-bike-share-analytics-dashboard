@@ -46,7 +46,8 @@ Six tabs, refreshed every minute:
 | Demand Patterns | planning | hours per day each station was empty or full; fill level by area and hour of day; activity in dry and rainy hours |
 | Monitoring | operations | status tiles (data age, completeness, stations, weather, model, scoring); data collected per day; stations reporting |
 
-The Live Overview also counts e-bikes.
+The Live Overview also counts e-bikes, and the Forecast Accuracy tab checks
+whether the at-risk alerts came true.
 
 ## Quick start
 
