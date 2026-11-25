@@ -3,7 +3,7 @@
 Eleven panels in six tabs:
 
 * Live Overview     - station map; empty/full stations over the last 24 h.
-* Next-Hour Actions - suggested bike moves; stations at risk.
+* Next-Hour Actions - suggested van trips; stations at risk.
 * Forecast Accuracy - error per hour; error per area; model training runs.
 * Station Explorer  - one station's bikes and forecasts.
 * Demand Patterns   - fill level by area and hour; activity in dry vs rain.
@@ -23,7 +23,7 @@ from mobi import actions, config, features, queries
 from mobi.ingest import utcnow
 
 REFRESH_SECONDS = 60
-MAX_MOVES_SHOWN = 25
+MAX_TRIPS_SHOWN = 25
 IS_SIMULATION = config.is_simulation()
 
 # Forecast colours are fixed per series: the baseline is a neutral reference.
@@ -157,20 +157,23 @@ def action_tables(frame: pd.DataFrame) -> tuple[str, pd.DataFrame, pd.DataFrame]
         frame: Output of queries.overview().
 
     Returns:
-        A tuple (headline Markdown, suggested moves, stations at risk).
+        A tuple (headline Markdown, suggested van trips, stations at risk).
     """
     if frame.empty or frame["pred_corrected"].isna().all():
         return "No forecast yet.", pd.DataFrame(), pd.DataFrame()
     risks = actions.at_risk_stations(frame)
     moves = actions.plan_moves(frame)
+    trips = actions.plan_trips(moves)
     counts = risks["risk"].value_counts() if not risks.empty else pd.Series(dtype=int)
     target = _local(frame["target_time"].dropna().iloc[0])
     headline = (
-        f"**Forecast for {target:%H:%M}** | **{counts.get('Empty soon', 0)}** stations "
-        f"running low, **{counts.get('Full soon', 0)}** nearly full | **{len(moves)}** "
-        f"moves suggested, the {min(len(moves), MAX_MOVES_SHOWN)} most urgent shown"
+        f"**Forecast for {target:%H:%M}** | **{counts.get(actions.EMPTY_SOON, 0)}** stations "
+        f"running low, **{counts.get(actions.FULL_SOON, 0)}** nearly full | "
+        f"**{int(moves['bikes'].sum())}** bikes to move in **{len(trips)}** van trips "
+        f"(up to {actions.VAN_CAPACITY} bikes each), the "
+        f"{min(len(trips), MAX_TRIPS_SHOWN)} most urgent shown"
     )
-    return headline, moves.head(MAX_MOVES_SHOWN), risks
+    return headline, trips.head(MAX_TRIPS_SHOWN), risks
 
 
 # ------------------------------------------------------------ Forecast Accuracy
@@ -581,7 +584,7 @@ def build_app() -> gr.Blocks:
 
         with gr.Tab("Next-Hour Actions"):
             actions_headline = gr.Markdown()
-            moves_table = gr.Dataframe(label="Suggested moves", interactive=False)
+            moves_table = gr.Dataframe(label="Suggested van trips", interactive=False)
             risk_table = gr.Dataframe(label="Stations at risk in the next hour", interactive=False)
 
         with gr.Tab("Forecast Accuracy"):
