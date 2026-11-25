@@ -1,12 +1,13 @@
 """Gradio dashboard for Mobi dispatchers and the team running the pipeline.
 
-Eleven panels in six tabs (the station map also counts e-bikes):
+Twelve panels in six tabs (the station map also counts e-bikes):
 
 * Live Overview     - station map; empty/full stations over the last 24 h.
 * Next-Hour Actions - suggested bike moves; stations at risk.
 * Forecast Accuracy - error per hour; error per area; model training runs.
 * Station Explorer  - one station's bikes and forecasts.
-* Demand Patterns   - fill level by area and hour; activity in dry vs rain.
+* Demand Patterns   - hours empty/full per station; fill by area and hour;
+                      activity in dry vs rain.
 * Monitoring        - status board; daily data completeness; stations reporting.
 
 Run with: uv run --extra app python -m mobi.app
@@ -365,6 +366,57 @@ def activity_chart() -> go.Figure | None:
     return _style(figure, 340)
 
 
+SERVICE_COLORS = {"Empty (no bikes)": "#e34948", "Full (no docks)": "#6250d6"}
+SERVICE_STATIONS_SHOWN = 15
+
+
+def service_headline(service: pd.DataFrame) -> str:
+    """Summarises how long stations were empty or full over the last 7 days.
+
+    Args:
+        service: Output of queries.service_hours().
+
+    Returns:
+        A Markdown line with the network averages.
+    """
+    if service.empty:
+        return EMPTY_MESSAGE
+    worst = service.iloc[0]
+    return (
+        f"**Hours per day a station could not serve riders, last 7 days** | average "
+        f"station: **{service['empty_hours'].mean():.1f} h** empty, "
+        f"**{service['full_hours'].mean():.1f} h** full | worst: **{worst['name']}** "
+        f"({worst['empty_hours'] + worst['full_hours']:.1f} h)"
+    )
+
+
+def service_chart(service: pd.DataFrame) -> go.Figure | None:
+    """Ranks the stations most often empty or full over the last 7 days.
+
+    Args:
+        service: Output of queries.service_hours().
+
+    Returns:
+        A horizontal stacked bar chart, worst station on top, or None without
+        data.
+    """
+    if service.empty:
+        return None
+    worst = service.head(SERVICE_STATIONS_SHOWN).iloc[::-1]
+    figure = go.Figure()
+    for column, label in (("empty_hours", "Empty (no bikes)"), ("full_hours", "Full (no docks)")):
+        figure.add_bar(
+            y=worst["name"], x=worst[column], orientation="h", name=label,
+            marker={"color": SERVICE_COLORS[label], "line": {"color": "#ffffff", "width": 2}},
+            customdata=worst["area"],
+            hovertemplate="%{y} (%{customdata})<br>" + label + ": %{x:.1f} h per day<extra></extra>",
+        )
+    figure.update_layout(barmode="stack", bargap=0.3, xaxis_title="Hours per day", yaxis_title="")
+    figure = _style(figure, 460)
+    figure.update_layout(hovermode="closest")
+    return figure
+
+
 # -------------------------------------------------------------------- Monitoring
 
 # Status colours are reserved for health states and always paired with an
@@ -550,6 +602,7 @@ def refresh_all() -> tuple:
     """
     frame = queries.overview()
     hourly = queries.accuracy()
+    service = queries.service_hours()
     headline, moves, risks = action_tables(frame)
     return (
         live_kpis(frame),
@@ -562,6 +615,8 @@ def refresh_all() -> tuple:
         accuracy_chart(hourly),
         area_error_chart(),
         training_chart(),
+        service_headline(service),
+        service_chart(service),
         fill_heatmap(),
         activity_chart(),
         monitoring_cards(),
@@ -614,6 +669,8 @@ def build_app() -> gr.Blocks:
             station_plot = gr.Plot(label="Bikes and forecasts, last 24 h")
 
         with gr.Tab("Demand Patterns"):
+            service_text = gr.Markdown()
+            service_plot = gr.Plot(label="Stations most often empty or full, last 7 days")
             heatmap_plot = gr.Plot(label="Average fill level by area and hour, last 7 days")
             activity_plot = gr.Plot(label="Network activity by hour: dry vs rain, last 7 days")
 
@@ -630,7 +687,7 @@ def build_app() -> gr.Blocks:
             kpis, map_plot, empty_full_plot,
             actions_headline, moves_table, risk_table,
             acc_headline, acc_plot, area_plot, training_plot,
-            heatmap_plot, activity_plot,
+            service_text, service_plot, heatmap_plot, activity_plot,
             status_board, completeness_plot, stations_plot,
         ]
         demo.load(refresh_all, outputs=outputs)

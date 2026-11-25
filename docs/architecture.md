@@ -83,7 +83,7 @@ pipeline refuses to write live snapshots into the simulation database.
 
 A Gradio app (`mobi.app`) reads the database only and refreshes every 60
 seconds. Query results are cached for 30 seconds (live data) to 10 minutes
-(seven-day analyses). Eleven panels in six tabs serve three audiences. The
+(seven-day analyses). Twelve panels in six tabs serve three audiences. The
 Live Overview also counts e-bikes (`num_ebikes`, NULL in rows collected before
 it was added):
 
@@ -93,7 +93,7 @@ it was added):
 | Next-Hour Actions | suggested moves; stations at risk | dispatcher |
 | Forecast Accuracy | error per hour (7 days); error by area (24 h); training runs | data team |
 | Station Explorer | one station's bikes and forecasts (24 h) | both |
-| Demand Patterns | fill level by area and hour; activity in dry vs rainy hours | planning |
+| Demand Patterns | hours empty and full per station (7 days); fill level by area and hour; activity in dry vs rainy hours | planning |
 | Monitoring | status board (data age, completeness, stations, weather, model vs baseline, scoring backlog); share of expected snapshots collected per day; stations reporting per snapshot | operations |
 
 Suggested moves follow three rules: a station is short when its corrected

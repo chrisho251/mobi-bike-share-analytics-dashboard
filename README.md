@@ -43,7 +43,7 @@ Six tabs, refreshed every minute:
 | Next-Hour Actions | dispatcher | suggested bike moves; stations at risk in the next hour |
 | Forecast Accuracy | data team | error of the three forecasts per hour and per area; held-out error of each training run |
 | Station Explorer | both | one station's bikes over 24 h with the forecasts made an hour earlier |
-| Demand Patterns | planning | fill level by area and hour of day; activity in dry and rainy hours |
+| Demand Patterns | planning | hours per day each station was empty or full; fill level by area and hour of day; activity in dry and rainy hours |
 | Monitoring | operations | status tiles (data age, completeness, stations, weather, model, scoring); data collected per day; stations reporting |
 
 The Live Overview also counts e-bikes.

@@ -100,7 +100,7 @@ source. Stop the server with `Ctrl+C`.
 | Next-Hour Actions | Suggested bike moves and the stations at risk in the next hour. |
 | Forecast Accuracy | Error of baseline, model and corrected forecasts per hour and per area; held-out error of each training run. |
 | Station Explorer | Pick a station: its bikes over 24 h with the forecasts made an hour earlier. |
-| Demand Patterns | Fill level by area and hour; activity in dry vs rainy hours. |
+| Demand Patterns | Hours per day each station was empty or full; fill level by area and hour; activity in dry vs rainy hours. |
 | Monitoring | Status board (green / amber / red tiles), data collected per day, stations reporting. |
 
 The Live Overview also counts e-bikes.

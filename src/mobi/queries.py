@@ -201,6 +201,44 @@ def accuracy_by_area(hours: int = 24) -> pd.DataFrame:
     return scored.groupby("area")[["baseline", "model", "corrected"]].mean().reset_index()
 
 
+@ttl_cache(600)
+def service_hours(days: int = 7) -> pd.DataFrame:
+    """Measures how long each station was empty or full per day.
+
+    A station is empty with no bike to rent and full with no free dock. Hours
+    are the share of the station's snapshots in that state times 24, so gaps
+    in collection do not count as service.
+
+    Args:
+        days: How many days of history to use.
+
+    Returns:
+        One row per station with name, area, empty_hours, full_hours and
+        snapshots, sorted by empty_hours + full_hours, worst first. Empty
+        without data.
+    """
+    since = _since(24 * days)
+    if since is None:
+        return pd.DataFrame()
+    s = station_status.c
+    counts = features.read_query(
+        select(
+            s.station_id,
+            func.count().label("snapshots"),
+            func.sum(case((s.num_bikes == 0, 1), else_=0)).label("empty"),
+            func.sum(case((s.num_docks == 0, 1), else_=0)).label("full"),
+        )
+        .where(s.snapshot_time > since)
+        .group_by(s.station_id)
+    )
+    frame = counts.merge(features.load_stations()[["station_id", "name", "area"]], on="station_id")
+    frame["empty_hours"] = frame["empty"] / frame["snapshots"] * 24
+    frame["full_hours"] = frame["full"] / frame["snapshots"] * 24
+    frame = frame.assign(total=frame["empty_hours"] + frame["full_hours"])
+    frame = frame.sort_values("total", ascending=False)
+    return frame[["name", "area", "empty_hours", "full_hours", "snapshots"]].reset_index(drop=True)
+
+
 @ttl_cache(300)
 def model_history(limit: int = 200) -> pd.DataFrame:
     """Returns the most recent training runs, oldest first.

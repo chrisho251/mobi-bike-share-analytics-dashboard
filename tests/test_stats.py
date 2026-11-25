@@ -1,10 +1,12 @@
-"""Tests for e-bike collection."""
+"""Tests for e-bike collection and hours empty or full."""
+
+from datetime import timedelta
 
 import pytest
-from conftest import START
+from conftest import START, station_rows
 from sqlalchemy import create_engine, inspect, select, text
 
-from mobi import db, ingest
+from mobi import db, ingest, queries
 
 
 def _feed_station(types):
@@ -76,3 +78,22 @@ def test_init_db_adds_new_columns_to_an_existing_table(tmp_path, monkeypatch):
     with engine.connect() as conn:
         assert conn.execute(select(db.station_status.c.num_ebikes)).scalar_one() is None
     engine.dispose()
+
+
+def test_service_hours_measure_time_empty_and_full(sqlite_db):
+    rows = []
+    for step in range(12):
+        time = START + timedelta(minutes=10 * step)
+        # s00 is empty for 3 of 12 snapshots, s01 full for 6, s02 never either.
+        for station, bikes in (("s00", 0 if step < 3 else 5), ("s01", 20 if step < 6 else 10), ("s02", 8)):
+            rows.append({"station_id": station, "snapshot_time": time, "num_bikes": bikes,
+                         "num_docks": 20 - bikes, "is_renting": True, "is_returning": True})
+    with sqlite_db.begin() as conn:
+        conn.execute(db.stations.insert(), station_rows()[:3])
+        conn.execute(db.station_status.insert(), rows)
+
+    service = queries.service_hours.__wrapped__().set_index("name")
+
+    assert service.index.tolist() == ["Station 1", "Station 0", "Station 2"]  # worst first
+    assert service.loc["Station 0", ["empty_hours", "full_hours"]].tolist() == [6.0, 0.0]
+    assert service.loc["Station 1", ["empty_hours", "full_hours"]].tolist() == [0.0, 12.0]
